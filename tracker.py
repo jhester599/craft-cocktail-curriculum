@@ -5,14 +5,15 @@ TRACK_CSS = '''
 /* ---- progress dashboard ---- */
 .dash{background:var(--panel);border:1px solid var(--line);padding:20px;margin:30px 0 0}
 .dash-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;justify-content:space-between}
-.dash-count{font-family:"Bodoni Moda",Georgia,serif;font-size:26px}
+.dash-count{font-family:"Bodoni Moda",Georgia,serif;font-size:26px;font-optical-sizing:none;}
 .dash-count b{color:var(--chart);font-weight:500}
 .dash-sub{color:var(--muted);font-size:13.5px}
 .bar{height:6px;background:var(--panel-2);border:1px solid var(--line);margin:14px 0 0;position:relative}
 .bar i{display:block;height:100%;background:var(--chart);width:0}
 .filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
 .filters button,.tools button,.tools label{font-family:inherit;font-size:12.5px;color:var(--muted);
-  background:var(--panel-2);border:1px solid var(--line);padding:6px 11px;cursor:pointer}
+  background:var(--panel-2);border:1px solid var(--line);padding:6px 14px;cursor:pointer;
+  min-height:44px;display:inline-flex;align-items:center}
 .filters button[aria-pressed="true"]{color:var(--ink);background:var(--chart);border-color:var(--chart)}
 .filters button:hover,.tools button:hover,.tools label:hover{color:var(--chart);border-color:var(--chart)}
 .filters button[aria-pressed="true"]:hover{color:var(--ink)}
@@ -26,21 +27,22 @@ TRACK_CSS = '''
 .track{margin-top:16px;padding-top:14px;border-top:1px dotted var(--line)}
 .track-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .mk{font-family:inherit;font-size:13px;color:var(--muted);background:var(--panel-2);
-  border:1px solid var(--line);padding:7px 13px;cursor:pointer;display:inline-flex;
-  align-items:center;gap:7px}
+  border:1px solid var(--line);padding:7px 16px;cursor:pointer;display:inline-flex;
+  align-items:center;gap:7px;min-height:44px}
 .mk:hover{color:var(--chart);border-color:var(--chart)}
 .mk[aria-pressed="true"]{color:var(--ink);background:var(--chart);border-color:var(--chart)}
 .mk[aria-pressed="true"]:hover{color:var(--ink)}
 .mk .tick{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
-.stars{display:inline-flex;gap:2px}
-.stars button{background:none;border:none;padding:2px;cursor:pointer;color:var(--line);
-  font-size:17px;line-height:1;font-family:inherit}
+.stars{display:inline-flex;gap:0}
+.stars button{background:none;border:none;padding:0;cursor:pointer;color:var(--line);
+  font-size:20px;line-height:1;font-family:inherit;min-width:44px;min-height:44px;
+  display:inline-flex;align-items:center;justify-content:center}
 .stars button.on{color:var(--brass)}
 .stars button:hover{color:var(--chart)}
 .madeon{font-size:12.5px;color:var(--muted)}
 .note{width:100%;margin-top:10px;background:var(--panel-2);border:1px solid var(--line);
   color:var(--bone);font-family:inherit;font-size:14.5px;line-height:1.5;padding:10px 12px;
-  resize:vertical;min-height:44px}
+  resize:vertical;min-height:82px}
 .note::placeholder{color:#5F6A5C}
 .note:focus{border-color:var(--chart);outline:none}
 .drink.done{border-left-color:var(--chart)}

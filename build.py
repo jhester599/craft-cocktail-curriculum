@@ -250,7 +250,8 @@ body{margin:0;background:var(--ink);color:var(--bone);
   -webkit-text-size-adjust:100%;}
 .wrap{max-width:760px;margin:0 auto;padding:0 22px 100px}
 a{color:inherit}
-h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:500;margin:0}
+h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:500;margin:0;
+  font-optical-sizing:none;}
 
 /* ---- masthead ---- */
 .mast{padding:76px 0 34px;border-bottom:1px solid var(--line)}
@@ -260,14 +261,14 @@ h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weigh
 .tally{list-style:none;padding:0;margin:30px 0 0;display:flex;flex-wrap:wrap;gap:8px}
 .tally li{background:var(--panel);border:1px solid var(--line);border-radius:2px;
   padding:7px 11px;font-size:13.5px;color:var(--muted);display:flex;gap:7px;align-items:baseline}
-.tn{font-family:"Bodoni Moda",Georgia,serif;font-size:18px;color:var(--chart)}
+.tn{font-family:"Bodoni Moda",Georgia,serif;font-size:18px;color:var(--chart);font-optical-sizing:none;}
 
 /* ---- contents ---- */
 .contents{padding:34px 0;border-bottom:1px solid var(--line)}
 .contents h2{font-size:15px;font-family:Karla,sans-serif;font-weight:700;letter-spacing:.02em;
   color:var(--muted);margin-bottom:14px}
-.contents a{display:block;text-decoration:none;padding:9px 0;border-bottom:1px dotted var(--line);
-  font-family:"Bodoni Moda",Georgia,serif;font-size:19px}
+.contents a{display:block;text-decoration:none;padding:11px 0;border-bottom:1px dotted var(--line);
+  font-family:"Bodoni Moda",Georgia,serif;font-size:19px;font-optical-sizing:none;min-height:44px}
 .contents a:hover,.contents a:focus-visible{color:var(--chart)}
 .contents .apxlinks a{font-family:Karla,sans-serif;font-size:15.5px;color:var(--muted)}
 
@@ -280,7 +281,7 @@ h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weigh
 .drink{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--brass);
   padding:24px 22px;margin-bottom:18px}
 .drink-head{margin-bottom:16px}
-.num{font-family:"Bodoni Moda",Georgia,serif;font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.num{font-family:"Bodoni Moda",Georgia,serif;font-size:13px;color:var(--muted);display:block;margin-bottom:4px;font-optical-sizing:none;}
 .drink h3{font-size:26px;line-height:1.15}
 .tags{margin:9px 0 0;display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12px;letter-spacing:.02em;color:var(--muted);border:1px solid var(--line);
@@ -316,7 +317,7 @@ h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weigh
 .apx h3{font-size:23px}
 .apx-blurb{color:var(--muted);font-size:15.5px;margin:8px 0 22px;max-width:58ch}
 .brow{background:var(--panel);border:1px solid var(--line);padding:18px;margin-bottom:12px}
-.bitem{font-family:"Bodoni Moda",Georgia,serif;font-size:20px;margin-bottom:12px}
+.bitem{font-family:"Bodoni Moda",Georgia,serif;font-size:20px;margin-bottom:12px;font-optical-sizing:none;}
 .bcols{display:grid;grid-template-columns:1fr;gap:12px}
 .blab{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
 .bcol:first-child .bottle span{color:var(--bone)}
@@ -360,11 +361,12 @@ footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
 .bname{display:block;font-size:15.5px;line-height:1.35}
 .blinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
 .blinks a{display:inline-flex;align-items:center;gap:5px;text-decoration:none;
-  border:1px solid var(--line);background:var(--panel-2);padding:4px 9px;
+  border:1px solid var(--line);background:var(--panel-2);padding:6px 12px;min-height:44px;
   font-size:12.5px;color:var(--muted)}
 .blinks a:hover,.blinks a:focus-visible{color:var(--chart);border-color:var(--chart)}
 .oi{width:12px;height:12px;flex:none;fill:none;stroke:currentColor;stroke-width:1.4}
-.offsale{font-size:12px;color:var(--brass);border:1px dotted #3B3322;padding:4px 9px}
+.offsale{font-size:12px;color:var(--brass);border:1px dotted #3B3322;padding:6px 12px;
+  display:inline-flex;align-items:center;min-height:44px}
 .bcol:last-child .bname{color:var(--muted);font-size:14.5px}
 .brow{scroll-margin-top:16px}
 .brow:target{border-color:var(--chart)}
