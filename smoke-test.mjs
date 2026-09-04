@@ -152,5 +152,51 @@ const v1 = {
   ok('import writes no numeric keys', !Object.keys(out).some(k => /^\d+$/.test(k)));
 }
 
+// ---------------------------------------------------------------------------
+// OHLQ links: product page, category shelf, grocery tag, no dead ends
+// ---------------------------------------------------------------------------
+{
+  const hrefs = [...d.querySelectorAll('a[href]')].map(a => a.getAttribute('href'));
+  const ohlq = hrefs.filter(h => h.startsWith('https://www.ohlq.com/'));
+
+  ok('every bottle links to ohlq.com directly', ohlq.length > 100);
+  ok('no google site: search hops remain',
+     !hrefs.some(h => h.includes('site%3Aohlq.com') || h.includes('site:ohlq.com')));
+  ok('every ohlq link is under /liquor/',
+     ohlq.every(h => h.startsWith('https://www.ohlq.com/liquor/')));
+
+  // A confirmed product page, whose slug is nothing like the brand string.
+  const bottleLink = name => {
+    const el = [...d.querySelectorAll('.bname')].find(n => n.textContent === name);
+    return el && el.parentElement.querySelector('a[href*="ohlq.com"]');
+  };
+  ok('confirmed product resolves to its product page',
+     bottleLink('Smith & Cross')?.getAttribute('href')
+       === 'https://www.ohlq.com/liquor/rum/dark/smith-cross-traditional-jamaica-rum');
+
+  // Unharvested bottles fall back to the category shelf rather than a dead link.
+  ok('unharvested bottle falls back to its category',
+     bottleLink('Cimarrón Blanco')?.getAttribute('href')
+       === 'https://www.ohlq.com/liquor/tequila?producttype=blanco');
+
+  // Regression: wave_html used to hand every wave bottle an OHLQ link, even the
+  // under-21% ABV ones the appendix sends to a grocery store.
+  const waves = d.querySelector('.waves');
+  const waveBottle = name =>
+    [...waves.querySelectorAll('.bname')].find(n => n.textContent === name)?.parentElement;
+  ok('low-ABV wave bottle shows the grocery tag',
+     !!waveBottle('Aperol')?.querySelector('.offsale'));
+  ok('low-ABV wave bottle has no OHLQ link',
+     !waveBottle('Aperol')?.querySelector('a[href*="ohlq.com"]'));
+  ok('spirit wave bottle still links to OHLQ',
+     !!waveBottle('Campari')?.querySelector('a[href*="ohlq.com"]'));
+
+  // Regression: "Homemade" is a technique, not a bottle to go and buy.
+  const homemade = [...d.querySelectorAll('.bname')].filter(n => /^Homemade/.test(n.textContent));
+  ok('homemade rows exist', homemade.length > 0);
+  ok('homemade rows offer no shopping links',
+     homemade.every(n => n.parentElement.querySelectorAll('a').length === 0));
+}
+
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
 process.exit(fail ? 1 : 0);

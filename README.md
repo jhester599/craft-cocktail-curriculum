@@ -14,6 +14,7 @@ no dependencies. Host it on GitHub Pages as-is.
 | `data.py` | **Content source.** All 52 cocktails (ingredients, method, video, note) and the whole bottle appendix. Edit here to change recipes or brands. |
 | `tracker.py` | The progress/notes UI — CSS, dashboard markup, and the localStorage JavaScript. |
 | `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
+| `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
 
 ## Build
 
@@ -26,7 +27,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # smoke-test.mjs — 38 checks against a real DOM
+npm test                  # smoke-test.mjs — 48 checks against a real DOM
 npm run serve             # http://localhost:8000
 ```
 
@@ -53,7 +54,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
    site. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 38 jsdom checks.
+4. `npm test` — the 48 jsdom checks.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -76,9 +77,20 @@ The build is deterministic: same inputs, byte-identical output, no timestamps.
   `"aged Jamaican rum"` has to precede any bare `"rum"` entry. Appendix row ids are
   slugified from the item name, so renaming an appendix item breaks its inbound links
   unless `ANCHOR_MAP` is updated to match.
-- **OHLQ links** are Google site-scoped searches (`site:ohlq.com <brand>`) rather than
-  direct OHLQ search URLs, because OHLQ's search is JavaScript-rendered and its query
-  parameter could not be verified. If you find the real parameter, swap `ohlq_url()`.
+- **OHLQ links** are real ohlq.com URLs, held in `ohlq.py` and applied by `ohlq_url()`
+  in three tiers: an exact `PRODUCTS` page for a bottle if one is known, else the
+  `CATEGORIES` browse page for its appendix item, else the original
+  `site:ohlq.com` Google search. Currently 14 product links and 139 category links,
+  with no bottle left on the search fallback.
+
+  **These URLs have not been fetched.** ohlq.com is unreachable from the build
+  environment, so every path was taken from indexed search results rather than
+  confirmed with a request. Category paths are the sturdier half — they recur across
+  independent searches, follow one scheme, and survive a product being renamed or
+  delisted. Product slugs cannot be derived from a brand name (`Smith &amp; Cross` lives
+  at `smith-cross-traditional-jamaica-rum`), so `PRODUCTS` is small on purpose and only
+  holds bottles whose page title unambiguously matched. If one turns out to 404, delete
+  the entry: that bottle falls back to its category page and nothing else breaks.
 - **NON_OHLQ** in `build.py` lists appendix items Ohio does not sell through state
   agencies (under 21% ABV, or not a spirit). Those render a "grocery / wine shop" tag
   instead of an availability link.

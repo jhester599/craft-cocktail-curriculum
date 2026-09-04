@@ -7,6 +7,7 @@ import unicodedata
 from urllib.parse import quote_plus
 from data import GROUPS, APPENDIX, WAVES
 from tracker import TRACK_CSS, dash_html, track_js, track_block
+from ohlq import BASE as OHLQ_BASE, PRODUCTS, CATEGORIES, WAVE_ITEMS
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +103,8 @@ NON_OHLQ = {
     "Orange flower water", "Orgeat", "Cream of coconut", "Raspberry syrup",
     "Demerara / rich syrup", "Honey syrup", "Ginger beer", "Grapefruit soda",
     "Tomato juice", "Cocktail cherries",
+    # Waves-only: grenadine has no appendix row but is still a grocery buy.
+    "Grenadine",
 }
 
 OHLQ_ICON = ('<svg class="oi" viewBox="0 0 16 16" aria-hidden="true">'
@@ -109,16 +112,35 @@ OHLQ_ICON = ('<svg class="oi" viewBox="0 0 16 16" aria-hidden="true">'
 CAM_ICON = ('<svg class="oi" viewBox="0 0 16 16" aria-hidden="true">'
             '<path d="M2 5.2h3l1-1.6h4l1 1.6h3v7.4H2z"/><circle cx="8" cy="8.6" r="2.3"/></svg>')
 
-def ohlq_url(brand):
+def ohlq_url(brand, item=None):
+    """Best known ohlq.com URL: exact product, else category shelf, else search.
+
+    See ohlq.py for how the first two tiers were gathered and how far to trust
+    them. The search fallback always resolves, so an unknown bottle is never a
+    dead link.
+    """
+    path = PRODUCTS.get(strip_ent(brand))
+    if path is None and item is not None:
+        path = CATEGORIES.get(item)
+    if path:
+        return OHLQ_BASE + path
     return ("https://www.google.com/search?q="
             + quote_plus("site:ohlq.com " + strip_ent(brand)))
 
-def bottle_links(brand, in_ohlq=True):
+def is_homemade(brand):
+    """Rows like 'Homemade 3:1' name a technique, not a bottle to go and buy."""
+    return strip_ent(brand).lower().startswith("homemade")
+
+def bottle_links(brand, in_ohlq=True, item=None):
     """Brand name + an availability link and a shelf-photo link."""
+    if is_homemade(brand):
+        return ('<span class="bwrap"><span class="bname">%s</span>'
+                '<span class="blinks"><span class="none">make it yourself</span>'
+                '</span></span>' % brand)
     out = '<span class="bwrap"><span class="bname">%s</span><span class="blinks">' % brand
     if in_ohlq:
         out += ('<a href="%s" target="_blank" rel="noopener" title="Check Ohio Liquor availability">'
-                '%s<span>OHLQ</span></a>' % (ohlq_url(brand), OHLQ_ICON))
+                '%s<span>OHLQ</span></a>' % (ohlq_url(brand, item), OHLQ_ICON))
     else:
         out += '<span class="offsale" title="Under 21 percent ABV or not a spirit \u2014 sold in grocery and wine shops, not OHLQ">grocery / wine shop</span>'
     out += ('<a href="%s" target="_blank" rel="noopener" title="See what the label looks like">'
@@ -219,7 +241,8 @@ def appendix_html(sec):
     rows = ""
     for item, primary, alts, note in sec["rows"]:
         ok = item not in NON_OHLQ
-        alt_html = "".join(bottle_links(a, ok) for a in alts) if alts else '<span class="none">Make it yourself</span>'
+        alt_html = ("".join(bottle_links(a, ok, item) for a in alts) if alts
+                    else '<span class="none">Make it yourself</span>')
         rows += """
       <div class="brow" id="%s">
         <div class="bitem">%s</div>
@@ -228,7 +251,7 @@ def appendix_html(sec):
           <div class="bcol"><span class="blab">Also works</span>%s</div>
         </div>
         <p class="bnote">%s</p>
-      </div>""" % (slugify(item), item, bottle_links(primary, ok), alt_html, note)
+      </div>""" % (slugify(item), item, bottle_links(primary, ok, item), alt_html, note)
     return """
   <section class="apx" id="%s">
     <h3>%s</h3>
@@ -237,7 +260,13 @@ def appendix_html(sec):
   </section>""" % (sec["id"], sec["title"], sec["blurb"], rows)
 
 def wave_html(name, blurb, items):
-    links = "".join(bottle_links(i) for i in items)
+    # The waves name bottles loosely, so resolve each to the appendix item it
+    # means. Without this every wave entry rendered an OHLQ link, including the
+    # under-21% ABV ones the appendix correctly sends to a grocery store.
+    links = ""
+    for i in items:
+        item = WAVE_ITEMS.get(strip_ent(i))
+        links += bottle_links(i, item not in NON_OHLQ, item)
     return """
     <div class="wave">
       <h4>%s</h4>
@@ -262,6 +291,17 @@ for _g in GROUPS:
         SLUGS.append(_c["slug"])
 
 TOTAL = len(SLUGS)
+
+# Every bottle named in the buying-order waves must resolve to an appendix item,
+# or it silently loses its category link and its grocery/OHLQ classification.
+_unmapped = sorted({strip_ent(i) for _n, _b, items in WAVES for i in items}
+                   - set(WAVE_ITEMS))
+assert not _unmapped, "wave bottles missing from ohlq.WAVE_ITEMS: %s" % _unmapped
+
+# Categories are keyed by appendix item name; a typo there fails silently too.
+_items = {item for sec in APPENDIX for item, _p, _a, _n in sec["rows"]}
+_stray = sorted(set(CATEGORIES) - _items)
+assert not _stray, "ohlq.CATEGORIES keys match no appendix item: %s" % _stray
 
 nav = "".join('<a href="#%s">%s</a>' % (g["id"], g["title"]) for g in GROUPS)
 apx_nav = "".join('<a href="#%s">%s</a>' % (s["id"], s["title"]) for s in APPENDIX)
@@ -491,4 +531,11 @@ print("bytes:", len(doc))
 n = sum(len(g["cocktails"]) for g in GROUPS)
 print("cocktails:", n)
 print("bottle links:", doc.count('tbm=isch'))
+_cat_urls = {OHLQ_BASE + c for c in CATEGORIES.values()}
+_prod_urls = {OHLQ_BASE + c for c in PRODUCTS.values()}
+_hrefs = re.findall(r'href="([^"]+)"', doc)
+print("ohlq links: %d product, %d category, %d search fallback"
+      % (sum(h in _prod_urls for h in _hrefs),
+         sum(h in _cat_urls for h in _hrefs),
+         sum("site%3Aohlq.com" in h for h in _hrefs)))
 print("slugs:", len(SLUGS), "unique:", len(set(SLUGS)))
