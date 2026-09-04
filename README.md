@@ -4,6 +4,8 @@ A single-page cocktail curriculum: 52 drinks in 11 flavour families, with progre
 tracking, notes, OHLQ availability links and shelf photos. Static — no backend,
 no dependencies. Host it on GitHub Pages as-is.
 
+**Live:** <https://jhester599.github.io/craft-cocktail-curriculum/>
+
 ## Files
 
 | File | What it is |
@@ -28,9 +30,18 @@ npm test                  # smoke-test.mjs — 38 checks against a real DOM
 npm run serve             # http://localhost:8000
 ```
 
-**GitHub Pages:** Settings → Pages → Source: *Deploy from a branch*, Branch: `main` / `docs`.
-The `docs/.nojekyll` file is there to stop Jekyll from touching the output. No deploy workflow
-is needed — Pages serves the committed `docs/index.html` directly.
+## Deployment
+
+The site is served by GitHub Pages at
+<https://jhester599.github.io/craft-cocktail-curriculum/>.
+
+Configured under Settings → Pages → Source: *Deploy from a branch*, Branch: `main` / `docs`.
+Pushing to `main` redeploys automatically — there is no deploy workflow, because Pages serves
+the committed `docs/index.html` directly. The `docs/.nojekyll` file stops Jekyll from touching
+the output.
+
+Since the served file is the committed one, a push whose `docs/index.html` is out of date with
+`data.py` would ship a stale page. That is what the CI staleness gate below exists to prevent.
 
 ## Continuous integration
 
