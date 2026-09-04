@@ -28,8 +28,23 @@ npm test                  # smoke-test.mjs — 38 checks against a real DOM
 npm run serve             # http://localhost:8000
 ```
 
-**GitHub Pages:** Settings → Pages → deploy from branch, `main` / `docs`. The `docs/.nojekyll`
-file is there to stop Jekyll from touching the output.
+**GitHub Pages:** Settings → Pages → Source: *Deploy from a branch*, Branch: `main` / `docs`.
+The `docs/.nojekyll` file is there to stop Jekyll from touching the output. No deploy workflow
+is needed — Pages serves the committed `docs/index.html` directly.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+1. `npm ci` — installs jsdom, the only dev dependency.
+2. `python3 build.py` — regenerates the page.
+3. **Staleness gate** — `git diff --quiet -- docs/index.html`. Because Pages serves the
+   *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
+   site. The job fails with the offending diff if the committed page does not match a
+   fresh build. Fix it by running `python3 build.py` and committing the result.
+4. `npm test` — the 38 jsdom checks.
+
+The build is deterministic: same inputs, byte-identical output, no timestamps.
 
 ## How it works
 

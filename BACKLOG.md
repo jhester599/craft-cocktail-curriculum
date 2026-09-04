@@ -125,8 +125,8 @@ concatenated notes.
   (check the network tab on a search), swap `ohlq_url()` for one less hop.
 - **Accessibility and Lighthouse pass** — keyboard navigation through the filters and star
   ratings, contrast check on the muted greens, focus order through the tracking controls.
-- **Build on push** — a GitHub Action that regenerates the HTML when the data changes, so nobody
-  ships a stale page.
+- ~~**Build on push**~~ — **done.** `.github/workflows/ci.yml` rebuilds on every push and fails
+  if the committed `docs/index.html` differs from a fresh build, so a stale page cannot ship.
 
 ---
 
