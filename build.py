@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import html as H
+import json
 import os
 import re
+import unicodedata
 from urllib.parse import quote_plus
 from data import GROUPS, APPENDIX, WAVES
-from tracker import TRACK_CSS, DASH_HTML, TRACK_JS, track_block
+from tracker import TRACK_CSS, dash_html, track_js, track_block
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +71,24 @@ PLAY_ICON = ('<svg class="pi" viewBox="0 0 16 16" aria-hidden="true">'
 # ---------------------------------------------------------------------------
 # Links: OHLQ availability + shelf photo, and recipe -> appendix anchors
 # ---------------------------------------------------------------------------
+def drink_slug(name):
+    """Stable storage key for a cocktail, derived from its name.
+
+    Tracking data is keyed by this, never by position, so inserting or
+    reordering a drink cannot reattach notes to the wrong cocktail.
+    Accents are folded and apostrophes dropped so "Vieux Carre" and
+    "Tommy's Margarita" give clean keys.
+    """
+    n = strip_ent(name)
+    n = unicodedata.normalize("NFKD", n)
+    n = "".join(ch for ch in n if not unicodedata.combining(ch))
+    n = n.lower().replace("'", "").replace("\u2019", "")
+    n = re.sub(r"[^a-z0-9]+", "-", n).strip("-")
+    if not n:
+        raise ValueError("empty slug for cocktail name %r" % name)
+    return n
+
+
 def slugify(name):
     n = strip_ent(name).lower()
     n = n.replace("\u00e9", "e").replace("\u00e8", "e").replace("\u00e7", "c").replace("\u00e0", "a")
@@ -172,7 +192,7 @@ def cocktail_html(c):
     else:
         vid = '<p class="novideo">No strong video match found. Try searching the drink name on the Educated Barfly or Anders Erickson channels.</p>'
     return """
-    <article class="drink" id="d%d" data-id="%d">
+    <article class="drink" id="d%d" data-id="%s">
       <header class="drink-head">
         <span class="num">%02d</span>
         <h3>%s</h3>
@@ -182,7 +202,7 @@ def cocktail_html(c):
       <p class="method">%s</p>
       %s
       <p class="why">%s</p>%s
-    </article>""" % (c["n"], c["n"], c["n"], c["name"], c["family"], c["spirit"], ings, add_metric(c["method"]), vid, c["note"], track_block(c["n"]))
+    </article>""" % (c["n"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], ings, add_metric(c["method"]), vid, c["note"], track_block(c["slug"]))
 
 def group_html(g):
     drinks = "".join(cocktail_html(c) for c in g["cocktails"])
@@ -225,11 +245,23 @@ def wave_html(name, blurb, items):
       <div class="wavelist">%s</div>
     </div>""" % (name, blurb, links)
 
+# The number is a purely visual index reassigned from position on every
+# build. The slug is the identity that saved notes hang off.
 _seq = 0
+SLUGS = []
+_seen = {}
 for _g in GROUPS:
     for _c in _g["cocktails"]:
         _seq += 1
         _c["n"] = _seq
+        _c["slug"] = drink_slug(_c["name"])
+        if _c["slug"] in _seen:
+            raise SystemExit("duplicate slug %r: %r and %r"
+                             % (_c["slug"], _seen[_c["slug"]], _c["name"]))
+        _seen[_c["slug"]] = _c["name"]
+        SLUGS.append(_c["slug"])
+
+TOTAL = len(SLUGS)
 
 nav = "".join('<a href="#%s">%s</a>' % (g["id"], g["title"]) for g in GROUPS)
 apx_nav = "".join('<a href="#%s">%s</a>' % (s["id"], s["title"]) for s in APPENDIX)
@@ -410,32 +442,7 @@ doc = """<!doctype html>
     <ul class="tally">%s</ul>
   </header>
 
-  <section class="dash" id="dash">
-    <div class="dash-top">
-      <span class="dash-count"><b id="pcount">0</b> of 52 made</span>
-      <span class="dash-sub" id="pnote">Nothing logged yet</span>
-    </div>
-    <div class="bar"><i id="pbar"></i></div>
-    <div class="filters" role="group" aria-label="Filter drinks">
-      <button data-filter="all" aria-pressed="true">All 52</button>
-      <button data-filter="todo" aria-pressed="false">Still to make</button>
-      <button data-filter="done" aria-pressed="false">Made</button>
-      <button data-filter="top" aria-pressed="false">Rated 4+</button>
-      <button data-filter="noted" aria-pressed="false">Has notes</button>
-    </div>
-    <div class="tools">
-      <button id="export">Download my notes</button>
-      <label for="importfile">Restore from file</label>
-      <input type="file" id="importfile" accept="application/json,.json">
-      <button id="reset" class="danger">Clear everything</button>
-      <span class="saveflash" id="flash">Saved</span>
-    </div>
-    <p class="dash-note">Progress and notes are stored in this browser only, so they stay
-    private and work offline &mdash; but they do not follow you to another device or survive
-    clearing site data. Download your notes now and then and commit the file to the repo as a
-    backup; Restore reads it back in and merges it with whatever is already here.</p>
-  </section>
-
+  %s
 
   <nav class="contents">
     <h2>Eleven families</h2>
@@ -468,188 +475,11 @@ doc = """<!doctype html>
   <footer>Fifty-two drinks across eleven families. Sequence them by season rather than by number: stirred and spirit-forward in winter, gin and agave in spring, rum and tiki through summer, amaro in autumn.</footer>
 </div>
 
-<script>
-(function () {
-  var KEY = "bar52:v1";
-  var data = {};
-  try { data = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { data = {}; }
-
-  var flash = document.getElementById("flash"), flashT;
-  function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(data));
-      flash.classList.add("on");
-      clearTimeout(flashT);
-      flashT = setTimeout(function () { flash.classList.remove("on"); }, 1200);
-    } catch (e) {
-      flash.textContent = "Could not save - storage may be blocked";
-      flash.classList.add("on");
-    }
-    render();
-  }
-  function rec(id) { return data[id] || (data[id] = {}); }
-
-  function today() {
-    var d = new Date();
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  }
-
-  var filter = "all";
-
-  function render() {
-    var made = 0, cards = document.querySelectorAll(".drink");
-    for (var i = 0; i < cards.length; i++) {
-      var card = cards[i], id = card.dataset.id, r = data[id] || {};
-      if (r.made) made++;
-      card.classList.toggle("done", !!r.made);
-
-      var btn = card.querySelector(".mk");
-      btn.setAttribute("aria-pressed", r.made ? "true" : "false");
-      btn.querySelector("span").textContent = r.made ? "Made it" : "Mark as made";
-
-      var on = card.querySelector(".madeon");
-      on.textContent = r.made && r.date ? r.date : "";
-
-      var stars = card.querySelectorAll(".stars button");
-      for (var s = 0; s < stars.length; s++) {
-        stars[s].classList.toggle("on", (r.rating || 0) >= s + 1);
-      }
-
-      var show = filter === "all"
-        || (filter === "todo" && !r.made)
-        || (filter === "done" && !!r.made)
-        || (filter === "top" && (r.rating || 0) >= 4)
-        || (filter === "noted" && !!(r.note && r.note.trim()));
-      card.classList.toggle("hide", !show);
-    }
-
-    var groups = document.querySelectorAll(".group");
-    for (var g = 0; g < groups.length; g++) {
-      var vis = groups[g].querySelectorAll(".drink:not(.hide)").length;
-      groups[g].classList.toggle("hide", vis === 0);
-    }
-
-    document.getElementById("pcount").textContent = made;
-    document.getElementById("pbar").style.width = (made / 52 * 100) + "%%";
-    var rated = 0, sum = 0;
-    for (var k in data) {
-      if (data[k] && data[k].rating) { rated++; sum += data[k].rating; }
-    }
-    document.getElementById("pnote").textContent = made === 0
-      ? "Nothing logged yet"
-      : (52 - made) + " to go" + (rated ? " \u00b7 average rating " + (sum / rated).toFixed(1) : "");
-  }
-
-  document.addEventListener("click", function (e) {
-    var mk = e.target.closest(".mk");
-    if (mk) {
-      var r = rec(mk.dataset.id);
-      r.made = !r.made;
-      if (r.made && !r.date) r.date = today();
-      if (!r.made) delete r.date;
-      save();
-      return;
-    }
-    var st = e.target.closest(".stars button");
-    if (st) {
-      var rr = rec(st.dataset.id), v = parseInt(st.dataset.v, 10);
-      rr.rating = rr.rating === v ? 0 : v;
-      if (rr.rating && !rr.made) { rr.made = true; rr.date = rr.date || today(); }
-      save();
-      return;
-    }
-    var f = e.target.closest(".filters button");
-    if (f) {
-      filter = f.dataset.filter;
-      var all = document.querySelectorAll(".filters button");
-      for (var i = 0; i < all.length; i++) {
-        all[i].setAttribute("aria-pressed", all[i] === f ? "true" : "false");
-      }
-      render();
-    }
-  });
-
-  var noteT;
-  document.addEventListener("input", function (e) {
-    if (!e.target.classList.contains("note")) return;
-    var el = e.target;
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-    clearTimeout(noteT);
-    noteT = setTimeout(function () {
-      var r = rec(el.dataset.id);
-      r.note = el.value;
-      if (!r.note) delete r.note;
-      save();
-    }, 500);
-  });
-
-  document.getElementById("export").addEventListener("click", function () {
-    var payload = { app: "52-weeks-behind-the-bar", version: 1, saved: new Date().toISOString(), entries: data };
-    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "bar-notes-" + new Date().toISOString().slice(0, 10) + ".json";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-  });
-
-  document.getElementById("importfile").addEventListener("change", function (e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file) return;
-    var fr = new FileReader();
-    fr.onload = function () {
-      try {
-        var parsed = JSON.parse(fr.result);
-        var incoming = parsed.entries || parsed;
-        for (var id in incoming) {
-          var a = data[id] || {}, b = incoming[id] || {};
-          data[id] = {
-            made: a.made || b.made || false,
-            date: a.date || b.date,
-            rating: Math.max(a.rating || 0, b.rating || 0) || undefined,
-            note: [a.note, b.note].filter(function (n) { return n && n.trim(); })
-                    .filter(function (n, i, arr) { return arr.indexOf(n) === i; })
-                    .join("\\n\\n") || undefined
-          };
-        }
-        save();
-        fillNotes();
-        flash.textContent = "Restored";
-      } catch (err) {
-        flash.textContent = "That file could not be read";
-        flash.classList.add("on");
-      }
-    };
-    fr.readAsText(file);
-    e.target.value = "";
-  });
-
-  document.getElementById("reset").addEventListener("click", function () {
-    if (!confirm("Erase every mark, rating and note? Download your notes first if you want a copy.")) return;
-    data = {};
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    fillNotes();
-    render();
-  });
-
-  function fillNotes() {
-    var notes = document.querySelectorAll(".note");
-    for (var i = 0; i < notes.length; i++) {
-      var el = notes[i], r = data[el.dataset.id] || {};
-      el.value = r.note || "";
-      el.style.height = "auto";
-      if (el.value) el.style.height = el.scrollHeight + "px";
-    }
-  }
-
-  fillNotes();
-  render();
-})();
-</script>
+%s
 </body>
 </html>
-""" % (CSS, tally_html, nav, apx_nav, groups_html, apx_sections, waves_html, notes_html)
+""" % (CSS, tally_html, dash_html(TOTAL), nav, apx_nav, groups_html,
+       apx_sections, waves_html, notes_html, track_js(SLUGS))
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "index.html")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -661,3 +491,4 @@ print("bytes:", len(doc))
 n = sum(len(g["cocktails"]) for g in GROUPS)
 print("cocktails:", n)
 print("bottle links:", doc.count('tbm=isch'))
+print("slugs:", len(SLUGS), "unique:", len(set(SLUGS)))

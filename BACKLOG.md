@@ -8,13 +8,15 @@ longer real data accumulates. Each item notes why it matters and roughly what it
 ## P0 — Do before logging many drinks
 
 ### 1. Stable IDs instead of positional numbers
-Saved notes key off the sequential drink number, which `build.py` assigns from position in
-`GROUPS`. Insert or reorder a drink and every note after it silently attaches to the wrong
-cocktail. Switch the storage key to a slug (`last-word`, `jungle-bird`), keep the displayed
-number as a purely visual index, and ship a one-time migration that maps existing numeric
-keys to slugs using the current order.
-*Touches:* `build.py` (slug generation), `tracker.py` (storage layer), plus a migration step.
-**This blocks safe reordering, so it should land first.**
+**Done.** Storage moved from `bar52:v1` (keyed by sequential drink number) to `bar52:v2`
+(keyed by slug, e.g. `last-word`, `jungle-bird`). `drink_slug()` in `build.py` derives the
+slug from the cocktail name and the build fails on a collision; the displayed number is now
+a purely visual index. A one-time migration maps existing numeric keys through the current
+build order and leaves `v1` in place as a backup. Restore also accepts v1-shaped export
+files. Covered by 18 checks in `smoke-test.mjs`.
+
+*Remaining:* renaming a cocktail still changes its slug and orphans its notes. If that
+becomes a real risk, add an explicit `"slug"` override field in `data.py`.
 
 ### 2. Move content to JSON
 Convert `data.py` into `cocktails.json` and `bottles.json`; have the page fetch them at load.
@@ -35,14 +37,15 @@ Fish House Punch Short.
 
 ### 3b. Keep the smoke test green
 `smoke-test.mjs` exercises the tracker against a real DOM via jsdom — marking, rating,
-filtering, persistence, unmarking. Run it after any change to `tracker.py`, and put it in CI:
+filtering, persistence, unmarking, and the v1 &rarr; v2 slug migration. Run it after any
+change to `tracker.py`, and put it in CI:
 
 ```bash
 npm install jsdom && node smoke-test.mjs
 ```
 
-Coverage gaps worth adding: export/import round-trip, the merge logic on restore, and the
-reset confirm path.
+Coverage gaps worth adding: a full export/import round-trip through the real `FileReader`,
+the merge logic on restore, and the reset confirm path.
 
 ---
 

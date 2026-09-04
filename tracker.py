@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 # Progress tracking + notes UI (localStorage backed, works on GitHub Pages)
+#
+# Storage is keyed by cocktail slug, never by position, so reordering or
+# inserting a drink cannot reattach notes to the wrong cocktail. build.py
+# passes the ordered slug list in; the displayed number is only a label.
+import json
 
 TRACK_CSS = '''
 /* ---- progress dashboard ---- */
@@ -53,15 +58,15 @@ TRACK_CSS = '''
 @media (prefers-reduced-motion:reduce){.saveflash{transition:none}}
 '''
 
-DASH_HTML = '''
+_DASH_HTML = '''
   <section class="dash" id="dash">
     <div class="dash-top">
-      <span class="dash-count"><b id="pcount">0</b> of 52 made</span>
+      <span class="dash-count"><b id="pcount">0</b> of %(total)d made</span>
       <span class="dash-sub" id="pnote">Nothing logged yet</span>
     </div>
     <div class="bar"><i id="pbar"></i></div>
     <div class="filters" role="group" aria-label="Filter drinks">
-      <button data-filter="all" aria-pressed="true">All 52</button>
+      <button data-filter="all" aria-pressed="true">All %(total)d</button>
       <button data-filter="todo" aria-pressed="false">Still to make</button>
       <button data-filter="done" aria-pressed="false">Made</button>
       <button data-filter="top" aria-pressed="false">Rated 4+</button>
@@ -84,9 +89,42 @@ DASH_HTML = '''
 TRACK_JS = r'''
 <script>
 (function () {
-  var KEY = "bar52:v1";
-  var data = {};
-  try { data = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { data = {}; }
+  // Ordered slugs, build-time. Index i is the drink displayed as number i+1.
+  var SLUGS = __SLUGS__;
+  var KEY = "bar52:v2";
+  var OLD_KEY = "bar52:v1";
+
+  function read(k) {
+    try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; }
+  }
+
+  // One-time migration. v1 keyed entries off the sequential drink number, so
+  // the only way to interpret them is against the order that produced them -
+  // which is the order still on the page. v1 is deliberately left in place.
+  function migrate() {
+    var v1 = read(OLD_KEY);
+    if (!v1 || typeof v1 !== "object") return {};
+    var out = {}, moved = 0;
+    for (var k in v1) {
+      if (!Object.prototype.hasOwnProperty.call(v1, k)) continue;
+      var n = parseInt(k, 10);
+      if (String(n) === String(k).trim() && n >= 1 && n <= SLUGS.length) {
+        out[SLUGS[n - 1]] = v1[k];
+        moved++;
+      } else {
+        // Already a slug, or something unrecognised - carry it across as-is
+        // rather than drop it.
+        out[k] = v1[k];
+      }
+    }
+    if (moved || Object.keys(out).length) {
+      try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+    }
+    return out;
+  }
+
+  var data = read(KEY);
+  if (!data || typeof data !== "object") data = migrate();
 
   var flash = document.getElementById("flash"), flashT;
   function save() {
@@ -144,14 +182,14 @@ TRACK_JS = r'''
     }
 
     document.getElementById("pcount").textContent = made;
-    document.getElementById("pbar").style.width = (made / 52 * 100) + "%";
+    document.getElementById("pbar").style.width = (made / SLUGS.length * 100) + "%";
     var rated = 0, sum = 0;
     for (var k in data) {
       if (data[k] && data[k].rating) { rated++; sum += data[k].rating; }
     }
     document.getElementById("pnote").textContent = made === 0
       ? "Nothing logged yet"
-      : (52 - made) + " to go" + (rated ? " \u00b7 average rating " + (sum / rated).toFixed(1) : "");
+      : (SLUGS.length - made) + " to go" + (rated ? " \u00b7 average rating " + (sum / rated).toFixed(1) : "");
   }
 
   document.addEventListener("click", function (e) {
@@ -199,7 +237,7 @@ TRACK_JS = r'''
   });
 
   document.getElementById("export").addEventListener("click", function () {
-    var payload = { app: "52-weeks-behind-the-bar", version: 1, saved: new Date().toISOString(), entries: data };
+    var payload = { app: "52-weeks-behind-the-bar", version: 2, saved: new Date().toISOString(), entries: data };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -215,7 +253,15 @@ TRACK_JS = r'''
     fr.onload = function () {
       try {
         var parsed = JSON.parse(fr.result);
-        var incoming = parsed.entries || parsed;
+        var raw = parsed.entries || parsed;
+        var incoming = {};
+        for (var key in raw) {
+          if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+          var num = parseInt(key, 10);
+          var mapped = (String(num) === String(key).trim() && num >= 1 && num <= SLUGS.length)
+            ? SLUGS[num - 1] : key;
+          incoming[mapped] = raw[key];
+        }
         for (var id in incoming) {
           var a = data[id] || {}, b = incoming[id] || {};
           data[id] = {
@@ -243,6 +289,7 @@ TRACK_JS = r'''
     if (!confirm("Erase every mark, rating and note? Download your notes first if you want a copy.")) return;
     data = {};
     try { localStorage.removeItem(KEY); } catch (e) {}
+    // v1 is left alone on purpose: it is the pre-migration backup.
     fillNotes();
     render();
   });
@@ -263,23 +310,33 @@ TRACK_JS = r'''
 </script>
 '''
 
-def track_block(n):
+def dash_html(total):
+    """Dashboard markup. Totals come from the build, not a hardcoded 52."""
+    return _DASH_HTML % {"total": total}
+
+
+def track_js(slugs):
+    """The storage JS with the build's ordered slug list baked in."""
+    return TRACK_JS.replace("__SLUGS__", json.dumps(list(slugs)))
+
+
+def track_block(slug):
     return '''
       <div class="track">
         <div class="track-row">
-          <button class="mk" data-id="%d" aria-pressed="false">
+          <button class="mk" data-id="%s" aria-pressed="false">
             <svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8.4 3.2 3.2L13 4.8"/></svg>
             <span>Mark as made</span>
           </button>
           <span class="stars" role="group" aria-label="Rating">
-            <button data-id="%d" data-v="1" title="1 star" aria-label="1 star">&#9733;</button>
-            <button data-id="%d" data-v="2" title="2 stars" aria-label="2 stars">&#9733;</button>
-            <button data-id="%d" data-v="3" title="3 stars" aria-label="3 stars">&#9733;</button>
-            <button data-id="%d" data-v="4" title="4 stars" aria-label="4 stars">&#9733;</button>
-            <button data-id="%d" data-v="5" title="5 stars" aria-label="5 stars">&#9733;</button>
+            <button data-id="%s" data-v="1" title="1 star" aria-label="1 star">&#9733;</button>
+            <button data-id="%s" data-v="2" title="2 stars" aria-label="2 stars">&#9733;</button>
+            <button data-id="%s" data-v="3" title="3 stars" aria-label="3 stars">&#9733;</button>
+            <button data-id="%s" data-v="4" title="4 stars" aria-label="4 stars">&#9733;</button>
+            <button data-id="%s" data-v="5" title="5 stars" aria-label="5 stars">&#9733;</button>
           </span>
           <span class="madeon"></span>
         </div>
-        <textarea class="note" data-id="%d" rows="1"
+        <textarea class="note" data-id="%s" rows="1"
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
-      </div>''' % (n, n, n, n, n, n, n)
+      </div>''' % (slug, slug, slug, slug, slug, slug, slug)

@@ -2,22 +2,38 @@ import { JSDOM } from 'jsdom';
 import { readFileSync } from 'fs';
 const html = readFileSync('docs/index.html','utf8');
 
-const store = {};
-const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'https://example.com/' });
-const { window } = dom;
-// jsdom has localStorage at this url; confirm the script ran
-const d = window.document;
+const KEY = 'bar52:v2';
+const OLD_KEY = 'bar52:v1';
 
-function q(s){ return d.querySelector(s); }
 let fail = 0;
 const ok = (label, cond) => { console.log((cond?'PASS':'FAIL')+'  '+label); if(!cond) fail++; };
+
+// Build a document, optionally seeding localStorage *before* the inline
+// tracker script runs, which is what the migration path needs.
+function load(seed) {
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    url: 'https://example.com/',
+    beforeParse(window) {
+      if (seed) for (const [k, v] of Object.entries(seed)) {
+        window.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+      }
+    },
+  });
+  return dom;
+}
+
+const dom = load();
+const { window } = dom;
+const d = window.document;
+function q(s){ return d.querySelector(s); }
 
 ok('dashboard rendered', !!q('#dash'));
 ok('52 tracking blocks', d.querySelectorAll('.track').length === 52);
 ok('starts at 0 made', q('#pcount').textContent === '0');
 
-// mark drink 5 as made
-const card5 = d.querySelector('.drink[data-id="5"]');
+// mark the Boulevardier (drink 5) as made
+const card5 = d.querySelector('.drink[data-id="boulevardier"]');
 card5.querySelector('.mk').click();
 ok('count increments', q('#pcount').textContent === '1');
 ok('card marked done', card5.classList.contains('done'));
@@ -25,8 +41,8 @@ ok('date stamped', card5.querySelector('.madeon').textContent.length > 0);
 ok('button label flips', card5.querySelector('.mk span').textContent === 'Made it');
 ok('progress bar moves', q('#pbar').style.width !== '0px' && q('#pbar').style.width !== '');
 
-// rate drink 9 four stars -> should auto-mark made
-const card9 = d.querySelector('.drink[data-id="9"]');
+// rate the Old Pal (drink 9) four stars -> should auto-mark made
+const card9 = d.querySelector('.drink[data-id="old-pal"]');
 card9.querySelectorAll('.stars button')[3].click();
 ok('rating auto-marks made', q('#pcount').textContent === '2');
 ok('4 stars lit', card9.querySelectorAll('.stars button.on').length === 4);
@@ -41,19 +57,100 @@ ok('filter rated4+ shows 1', d.querySelectorAll('.drink:not(.hide)').length === 
 d.querySelector('.filters button[data-filter="all"]').click();
 ok('filter all restores 52', d.querySelectorAll('.drink:not(.hide)').length === 52);
 
-// persistence
-const raw = window.localStorage.getItem('bar52:v1');
-ok('written to localStorage', !!raw && JSON.parse(raw)['5'].made === true);
+// persistence, now keyed by slug
+const raw = window.localStorage.getItem(KEY);
+ok('written to localStorage', !!raw && JSON.parse(raw)['boulevardier'].made === true);
+ok('no positional keys written', !!raw && !Object.keys(JSON.parse(raw)).some(k => /^\d+$/.test(k)));
 
 // unmark
 card5.querySelector('.mk').click();
 ok('unmark decrements', q('#pcount').textContent === '1');
 ok('date cleared', card5.querySelector('.madeon').textContent === '');
 
-// reload with existing storage -> state restored
-const dom2 = new JSDOM(html, { runScripts:'dangerously', url:'https://example.com/' });
-dom2.window.localStorage.setItem('bar52:v1', raw);
-const dom3 = new JSDOM(html, { runScripts:'dangerously', url:'https://example.com/' });
-ok('survives reload (same origin store)', true);
+// reload with existing storage -> state actually restored
+{
+  const dom2 = load({ [KEY]: raw });
+  const d2 = dom2.window.document;
+  ok('survives reload (state restored)',
+     d2.querySelector('#pcount').textContent === '2'
+     && d2.querySelector('.drink[data-id="boulevardier"]').classList.contains('done'));
+}
+
+// ---------------------------------------------------------------------------
+// Migration: v1 keyed notes off the sequential drink number.
+// ---------------------------------------------------------------------------
+console.log('\n-- migration --');
+
+const v1 = {
+  '1':  { made: true, date: 'Sep 1, 2026', rating: 5, note: 'the blueprint' },
+  '9':  { made: true, date: 'Sep 2, 2026', rating: 3 },
+  '52': { made: true, date: 'Sep 3, 2026', note: 'showpiece' },
+};
+
+{
+  const m = load({ [OLD_KEY]: v1 });
+  const w = m.window, dm = w.document;
+  const out = JSON.parse(w.localStorage.getItem(KEY) || '{}');
+
+  ok('v1 migrated to v2 on first load', Object.keys(out).length === 3);
+  ok('numeric 1 maps to first drink by order', !!out['last-word'] && out['last-word'].rating === 5);
+  ok('numeric 9 maps to ninth drink by order', !!out['old-pal'] && out['old-pal'].date === 'Sep 2, 2026');
+  ok('numeric 52 maps to last drink by order', !!out['clarified-milk-punch'] && out['clarified-milk-punch'].note === 'showpiece');
+  ok('notes survive the move', out['last-word'].note === 'the blueprint');
+  ok('no numeric keys remain', !Object.keys(out).some(k => /^\d+$/.test(k)));
+
+  // v1 is a backup, not something to consume and delete
+  ok('v1 left in place', !!w.localStorage.getItem(OLD_KEY));
+  ok('v1 unchanged', JSON.stringify(JSON.parse(w.localStorage.getItem(OLD_KEY))) === JSON.stringify(v1));
+
+  // and the migrated state is actually on screen
+  ok('migrated state renders', dm.querySelector('#pcount').textContent === '3');
+  ok('migrated card marked done', dm.querySelector('.drink[data-id="last-word"]').classList.contains('done'));
+  ok('migrated note fills textarea',
+     dm.querySelector('.drink[data-id="last-word"] .note').value === 'the blueprint');
+}
+
+// runs once: an existing v2 wins and v1 is ignored
+{
+  const m = load({
+    [OLD_KEY]: v1,
+    [KEY]: { 'paper-plane': { made: true, date: 'Sep 4, 2026' } },
+  });
+  const w = m.window;
+  const out = JSON.parse(w.localStorage.getItem(KEY) || '{}');
+  ok('migration does not re-run over v2', !out['last-word'] && !!out['paper-plane']);
+  ok('v2 count reflects v2 only', m.window.document.querySelector('#pcount').textContent === '1');
+}
+
+// unmappable keys are carried across rather than dropped
+{
+  const m = load({ [OLD_KEY]: { '99': { made: true }, 'already-a-slug': { made: true } } });
+  const out = JSON.parse(m.window.localStorage.getItem(KEY) || '{}');
+  ok('out-of-range key preserved', !!out['99']);
+  ok('slug-shaped key preserved', !!out['already-a-slug']);
+}
+
+// a file exported from v1 restores onto the right drinks
+{
+  const m = load();
+  const w = m.window, dm = w.document;
+  const payload = { app: '52-weeks-behind-the-bar', version: 1, entries: v1 };
+
+  // drive the import handler directly with a stubbed FileReader
+  const realFR = w.FileReader;
+  w.FileReader = class {
+    readAsText() { this.result = JSON.stringify(payload); this.onload(); }
+  };
+  const input = dm.getElementById('importfile');
+  Object.defineProperty(input, 'files', { value: [{ name: 'notes.json' }], configurable: true });
+  input.dispatchEvent(new w.Event('change'));
+  w.FileReader = realFR;
+
+  const out = JSON.parse(w.localStorage.getItem(KEY) || '{}');
+  ok('v1 export imports onto slugs', !!out['last-word'] && !!out['clarified-milk-punch']);
+  ok('imported note lands on right drink', out['last-word'].note === 'the blueprint');
+  ok('import writes no numeric keys', !Object.keys(out).some(k => /^\d+$/.test(k)));
+}
 
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
+process.exit(fail ? 1 : 0);
