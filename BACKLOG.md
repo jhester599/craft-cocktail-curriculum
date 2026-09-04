@@ -30,8 +30,9 @@ that or inline the JSON as a `<script type="application/json">` block.
 (`https://www.youtube.com/oembed?url=...&format=json`, which 404s on dead or private videos):
 every one resolves, sits on the claimed channel, and has a title matching its drink. Links rot,
 so wire that check into a monthly GitHub Action that opens an issue when one breaks. Remaining
-content work: fill the 14 "no strong video match" gaps, and find a full tutorial to replace the
-Fish House Punch Short.
+content work: ~~fill the 14 "no strong video match" gaps~~ (**done** &mdash; all 52 drinks now
+carry a link, though the 14 added by hand have not been through the oEmbed check), and find a
+full tutorial to replace the Fish House Punch Short.
 
 ---
 

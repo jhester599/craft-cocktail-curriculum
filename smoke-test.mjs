@@ -198,5 +198,26 @@ const v1 = {
      homemade.every(n => n.parentElement.querySelectorAll('a').length === 0));
 }
 
+// ---------------------------------------------------------------------------
+// Video links: one per drink, well formed, consistent channel naming
+// ---------------------------------------------------------------------------
+{
+  const cards = [...d.querySelectorAll('.drink')];
+  const vids = cards.map(c => c.querySelector('a.video'));
+  ok('every drink has a video link', vids.every(Boolean));
+  ok('no "no strong match" notes remain', d.querySelectorAll('.novideo').length === 0);
+  ok('every video href is a youtube url',
+     vids.filter(Boolean).every(a => /^https:\/\/www\.youtube\.com\//.test(a.getAttribute('href'))));
+  ok('every video link names its channel',
+     vids.filter(Boolean).every(a => /Watch · .+/.test(a.textContent)));
+
+  // Same channel spelled two ways once shipped as two different names.
+  const channels = new Set(vids.filter(Boolean)
+    .map(a => a.textContent.replace(/^.*Watch · /, '').trim()));
+  ok('channel naming is not split by spelling',
+     !([...channels].some(c => c.startsWith('Truffle ')) &&
+       [...channels].some(c => c.startsWith('Truffles '))));
+}
+
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
 process.exit(fail ? 1 : 0);

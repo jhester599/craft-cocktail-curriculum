@@ -27,7 +27,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # smoke-test.mjs — 48 checks against a real DOM
+npm test                  # smoke-test.mjs — 53 checks against a real DOM
 npm run serve             # http://localhost:8000
 ```
 
@@ -54,7 +54,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
    site. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 48 jsdom checks.
+4. `npm test` — the 53 jsdom checks.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -104,9 +104,12 @@ The build is deterministic: same inputs, byte-identical output, no timestamps.
 - **NON_OHLQ** in `build.py` lists appendix items Ohio does not sell through state
   agencies (under 21% ABV, or not a spirit). Those render a "grocery / wine shop" tag
   instead of an availability link.
-- **Video links** were gathered from search results. Fourteen drinks intentionally say
-  "No strong video match found" rather than carry a guessed URL; the other 38 have been
-  checked against YouTube's oEmbed endpoint.
+- **Video links** cover all 52 drinks. 38 were gathered from search results and checked
+  against YouTube's oEmbed endpoint; the remaining 14 were sourced by hand and added
+  later, and have *not* been through that check (YouTube is unreachable from the build
+  environment). `data.py` still defines `NO_VIDEO`, and `cocktail_html()` still renders a
+  "No strong video match found" note for it, so a drink added without a video degrades
+  rather than breaking.
 
 ## Tracking data
 
