@@ -120,9 +120,6 @@ concatenated notes.
 - **Substitution matrix** — generalise what the Chartreuse entries do by hand: for each specialty
   bottle, what works instead and how the drink shifts.
 - **Year two** — a bench of alternates for drinks that don't land, and 52 more once this is done.
-- **Real OHLQ URLs** — links currently route through a site-scoped Google search because OHLQ's
-  search is JavaScript-rendered and its query parameter couldn't be verified. If you find it
-  (check the network tab on a search), swap `ohlq_url()` for one less hop.
 - **Accessibility and Lighthouse pass** — keyboard navigation through the filters and star
   ratings, contrast check on the muted greens, focus order through the tracking controls.
 - ~~**Build on push**~~ — **done.** `.github/workflows/ci.yml` rebuilds on every push and fails
