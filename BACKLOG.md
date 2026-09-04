@@ -101,6 +101,25 @@ practical payoff, and it makes the "phone on the counter" use case reliable.
 Separate tracks so you each keep your own ratings and notes, with a toggle in the dashboard and
 a combined view. Cheap version of the shared-state problem below.
 
+### 9b. Keep the Supabase project awake
+Supabase pauses a free-tier project after **7 days without database activity**, and a paused
+project accepts no reads or writes until it is restored (about 30 seconds to wake). A page used
+a few evenings a month would hit that pause almost every time, so the first sync after a quiet
+week would fail or stall.
+
+Fix it with a scheduled GitHub Action that pings the database often enough to count as activity
+— a cheap `rpc/ping` call every few days, on the pattern already established by
+`.github/workflows/video-links.yml`. Needs the project URL and anon key as repository secrets so
+they are not in the workflow file. Worth adding a failure path: if the ping errors, open an issue
+rather than failing silently, since a silent failure here means the pause happens anyway.
+
+Alternatives if the ping proves flaky: an external uptime monitor hitting the same endpoint, or
+Supabase Pro at $25/month per project, which removes the pause entirely.
+
+*Depends on:* item 10 landing first — there is nothing to keep awake until then.
+
+---
+
 ### 10. Genuinely shared state
 The real fix for two people on two devices. Options, roughly in order of effort:
 - **Supabase free tier** — a real table, anonymous auth or a shared key. Most capable.
