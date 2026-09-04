@@ -5,8 +5,9 @@
   "description": "A year-long craft cocktail curriculum with progress tracking",
   "scripts": {
     "build": "python3 build.py",
-    "test": "node smoke-test.mjs",
-    "serve": "python3 -m http.server 8000 --directory docs"
+    "test": "node smoke-test.mjs && node check-videos.test.mjs",
+    "serve": "python3 -m http.server 8000 --directory docs",
+    "check:videos": "node check-videos.mjs"
   },
   "devDependencies": {
     "jsdom": "^24.1.3"

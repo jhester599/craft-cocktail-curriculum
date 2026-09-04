@@ -26,13 +26,23 @@ build, and diffs in the repo turn readable. Keep `build.py` for the shell and CS
 that or inline the JSON as a `<script type="application/json">` block.
 
 ### 3. Keep the video links verified
-**Done once, needs automating.** All 38 links were checked against YouTube's oEmbed endpoint
-(`https://www.youtube.com/oembed?url=...&format=json`, which 404s on dead or private videos):
-every one resolves, sits on the claimed channel, and has a title matching its drink. Links rot,
-so wire that check into a monthly GitHub Action that opens an issue when one breaks. Remaining
-content work: ~~fill the 14 "no strong video match" gaps~~ (**done** &mdash; all 52 drinks now
-carry a link, though the 14 added by hand have not been through the oEmbed check), and find a
-full tutorial to replace the Fish House Punch Short.
+**Done.** All 52 drinks carry a tutorial link, and the check is automated.
+
+`check-videos.mjs` resolves every link through YouTube's oEmbed endpoint
+(`https://www.youtube.com/oembed?url=...&format=json`, which 404s on a deleted or private
+video and reports the channel a video actually belongs to).
+`.github/workflows/video-links.yml` runs it on the 1st of each month and on demand: a dead
+link, or one that resolves to a channel the page does not claim, opens a `video-links` issue
+— or comments on the open one, so a lasting problem does not spawn a new issue every month —
+and the issue closes itself once the links resolve again. Title changes are reported but never
+fail the run. If every link fails at once it exits without opening anything, since that means
+the network was blocked rather than the page rotting overnight.
+
+Two caveats worth remembering:
+- The original 38 links were checked against oEmbed by hand. The 14 added later were sourced
+  by hand and have *not* been through that check — the first scheduled run will be the first
+  time they are verified.
+- Still open: find a full tutorial to replace the Fish House Punch Short.
 
 ---
 

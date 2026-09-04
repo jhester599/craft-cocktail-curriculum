@@ -1,0 +1,84 @@
+name: video links
+
+# Video links rot: channels delete videos, make them private, or go away.
+# This checks all 52 against YouTube's oEmbed endpoint once a month and opens an
+# issue when one breaks, so the page does not quietly accumulate dead links.
+
+on:
+  schedule:
+    # 09:00 UTC on the 1st of each month.
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install test dependencies
+        run: npm ci
+
+      # Exit codes: 0 healthy, 1 links need attention, 2 could not run.
+      # 2 covers "YouTube was unreachable", which must not open an issue.
+      - name: Check video links
+        id: check
+        run: |
+          set +e
+          node check-videos.mjs --report report.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Fail the run if the check could not execute
+        if: steps.check.outputs.status == '2'
+        run: |
+          echo "::error::Could not check video links (YouTube unreachable, or the page markup changed)."
+          exit 1
+
+      - name: Open or update the link-rot issue
+        if: steps.check.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create video-links \
+            --description "Automated video link check" --color D0503A 2>/dev/null || true
+
+          {
+            cat report.md
+            echo
+            echo "Checked by [\`${GITHUB_WORKFLOW}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) on $(date -u '+%Y-%m-%d')."
+          } > body.md
+
+          # One issue, reopened and commented on, rather than a new one a month.
+          existing=$(gh issue list --label video-links --state open \
+                       --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --label video-links \
+              --title "Video links need attention" --body-file body.md
+          fi
+
+      - name: Close the issue if everything is healthy again
+        if: steps.check.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --label video-links --state open \
+                       --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" \
+              --comment "All video links resolve again as of $(date -u '+%Y-%m-%d'). Closing automatically."
+            echo "Closed issue #$existing"
+          else
+            echo "All video links healthy; no open issue to close."
+          fi

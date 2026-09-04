@@ -15,6 +15,7 @@ no dependencies. Host it on GitHub Pages as-is.
 | `tracker.py` | The progress/notes UI — CSS, dashboard markup, and the localStorage JavaScript. |
 | `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
+| `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
 
 ## Build
 
@@ -27,7 +28,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # smoke-test.mjs — 53 checks against a real DOM
+npm test                  # 53 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -54,9 +55,27 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
    site. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 53 jsdom checks.
+4. `npm test` — the 53 jsdom checks plus 14 covering the link checker.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
+
+`.github/workflows/video-links.yml` runs on the 1st of each month, and on demand:
+
+- `check-videos.mjs` resolves all 52 video links through YouTube's oEmbed endpoint,
+  which 404s on a deleted or private video and reports the channel a video really
+  belongs to.
+- A dead link, or one that resolves to a channel the page does not claim, opens an
+  issue labelled `video-links` — or comments on the existing one, so a persistent
+  problem does not produce a new issue every month. The issue closes itself once
+  everything resolves again.
+- Title changes are reported but never fail the run; channels rename videos, and a
+  monthly false alarm is how a check gets ignored.
+- If *every* link fails at once the run exits 2 and opens nothing, on the grounds
+  that 52 simultaneously dead videos means the network was blocked, not that the
+  page rotted overnight.
+
+`check-videos.test.mjs` drives all of that against a mocked endpoint, so the logic is
+covered without depending on YouTube being reachable.
 
 ## How it works
 
