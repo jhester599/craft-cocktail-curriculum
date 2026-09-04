@@ -1,0 +1,14 @@
+{
+  "name": "52-weeks-behind-the-bar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A year-long craft cocktail curriculum with progress tracking",
+  "scripts": {
+    "build": "python3 build.py",
+    "test": "node smoke-test.mjs",
+    "serve": "python3 -m http.server 8000 --directory docs"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
+}
