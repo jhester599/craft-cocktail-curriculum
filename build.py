@@ -6,8 +6,10 @@ import re
 import unicodedata
 from urllib.parse import quote_plus
 from data import GROUPS, APPENDIX, WAVES
-from tracker import TRACK_CSS, dash_html, track_js, track_block
+from tracker import (TRACK_CSS, dash_html, track_js, track_block,
+                     own_block, TONIGHT_HTML)
 from ohlq import BASE as OHLQ_BASE, PRODUCTS, CATEGORIES, WAVE_ITEMS
+from ingredients import MAP as ING_MAP, PANTRY
 
 
 # ---------------------------------------------------------------------------
@@ -148,58 +150,80 @@ def bottle_links(brand, in_ohlq=True, item=None):
     out += "</span></span>"
     return out
 
-# keyword in a recipe line -> appendix item it should jump to
-ANCHOR_MAP = [
-    ("green Chartreuse", "Green Chartreuse"), ("yellow Chartreuse", "Yellow Chartreuse"),
-    ("Campari", "Campari"), ("Aperol", "Aperol"),
-    ("B\u00e9n\u00e9dictine", "B\u00e9n\u00e9dictine"), ("Fernet-Branca", "Fernet-Branca"),
-    ("Amaro Averna", "Amaro Averna"), ("Amaro Nonino Quintessentia", "Amaro Nonino"),
-    ("Cynar", "Cynar"), ("Suze", "Suze"),
-    ("maraschino liqueur", "Maraschino liqueur"), ("cr\u00e8me de violette", "Cr\u00e8me de violette"),
-    ("Cointreau", "Triple sec / orange liqueur"),
-    ("dry orange cura\u00e7ao", "Orange cura\u00e7ao"), ("dry cura\u00e7ao", "Orange cura\u00e7ao"),
-    ("coffee liqueur", "Coffee liqueur"),
-    ("velvet falernum", "Velvet falernum"), ("falernum", "Velvet falernum"),
-    ("allspice dram", "Allspice (pimento) dram"), ("peach brandy", "Peach brandy"),
-    ("absinthe", "Absinthe"),
-    ("sweet vermouth", "Sweet vermouth"), ("Punt e Mes", "Sweet vermouth"),
-    ("dry vermouth", "Dry vermouth"),
-    ("Cocchi Americano", "Blanc aperitif"), ("Lillet Blanc", "Blanc aperitif"),
-    ("Angostura", "Aromatic bitters"), ("Peychaud's", "Creole bitters"),
-    ("orange bitters", "Orange bitters"), ("mole bitters", "Mole / chocolate bitters"),
-    ("orange flower water", "Orange flower water"),
-    ("orgeat", "Orgeat"), ("cream of coconut", "Cream of coconut"),
-    ("raspberry syrup", "Raspberry syrup"), ("demerara syrup", "Demerara / rich syrup"),
-    ("honey-ginger syrup", "Honey syrup"), ("honey syrup", "Honey syrup"),
-    ("ginger beer", "Ginger beer"), ("grapefruit soda", "Grapefruit soda"),
-    ("tomato juice", "Tomato juice"),
-    ("Smith &amp; Cross overproof Jamaican rum", "Overproof Jamaican"),
-    ("aged Jamaican rum", "Aged Jamaican"), ("aged demerara rum", "Demerara"),
-    ("blackstrap or dark rum", "Blackstrap"), ("blackstrap rum", "Blackstrap"),
-    ("rhum agricole vieux", "Rhum agricole vieux"),
-    ("Pusser's navy rum", "Navy rum"), ("white rum", "White / light rum"),
-    ("rye whiskey", "Rye, 100 proof"), ("bourbon or rye", "Bourbon"), ("bourbon", "Bourbon"),
-    ("blended Scotch", "Blended Scotch"), ("Islay single malt", "Islay single malt"),
-    ("cognac", "Cognac"),
-    ("bonded apple brandy or applejack", "Apple brandy / Calvados"),
-    ("apple brandy or Calvados", "Apple brandy / Calvados"),
-    ("Calvados or apple brandy", "Apple brandy / Calvados"),
-    ("pisco", "Pisco"),
-    ("blanco tequila", "Blanco tequila"), ("reposado tequila", "Reposado tequila"),
-    ("mezcal", "Mezcal"),
-    ("London dry gin", "London dry gin"), ("citron vodka", "Citrus vodka"),
-    ("vodka", "Vodka"), ("gin", "London dry gin"),
-]
+# ---------------------------------------------------------------------------
+# Ingredient resolution. One pass over ingredients.MAP claims non-overlapping,
+# word-boundary spans in a recipe line, most specific keyword first. That single
+# pass drives both the jump links and the bottle requirements behind
+# "what can I make tonight?", so the two can never disagree.
+# ---------------------------------------------------------------------------
+_PANTRY = sorted(PANTRY, key=len, reverse=True)
+
+def _find_span(line, kw, claimed):
+    """First word-boundary occurrence of kw not overlapping an existing claim."""
+    pat = r"(?<![A-Za-z0-9])" + re.escape(kw) + r"(?![A-Za-z0-9])"
+    for m in re.finditer(pat, line, re.I):
+        if not any(m.start() < e and st < m.end() for st, e in claimed):
+            return m.start(), m.end()
+    return None
+
+def resolve_line(line):
+    """-> (spans, leftover). spans are (start, end, item|None); None = pantry."""
+    claimed, spans = [], []
+    for kw, item in ING_MAP:
+        hit = _find_span(line, kw, claimed)
+        if hit:
+            claimed.append(hit)
+            spans.append((hit[0], hit[1], item))
+    for kw in _PANTRY:
+        while True:
+            hit = _find_span(line, kw, claimed)
+            if not hit:
+                break
+            claimed.append(hit)
+            spans.append((hit[0], hit[1], None))
+    chars = list(line)
+    for st, e in claimed:
+        for i in range(st, e):
+            chars[i] = " "
+    rest = re.sub(r"\([^)]*\)", " ", "".join(chars))
+    rest = re.sub(r"[\d\u00bc\u00bd\u00be\u2153\u2154\u215b:~,.\-\u2013;/&+]+", " ", rest)
+    rest = re.sub(r"\b(oz|ml|l|tsp|cup|dash|dashes|drop|drops|barspoon|fresh|to|top|of|or"
+                  r"|and|a|the|large|handful|pinch|batch|serves|optional|floated|float|proof"
+                  r"|amp|egg|whole|hot|leaves|juice|syrup|nectar|wedge|homemade|pomegranate"
+                  r"|honey|water|sugar|blended|rinse|on|foam)\b", " ", rest, flags=re.I)
+    return sorted(spans), " ".join(rest.split())
+
+def line_requirements(line):
+    """Bottles a line needs as OR-groups: [[a], [b, c]] means a AND (b OR c)."""
+    spans, _rest = resolve_line(line)
+    groups = []
+    for st, e, item in [x for x in spans if x[2]]:
+        if groups:
+            _ps, pe, _pi = groups[-1][-1]
+            # "bourbon or rye" is a choice; two separate lines are not.
+            if re.search(r"\bor\b", line[pe:st], re.I):
+                if item not in [g[2] for g in groups[-1]]:
+                    groups[-1].append((st, e, item))
+                continue
+        groups.append([(st, e, item)])
+    return [sorted({g[2] for g in grp}) for grp in groups]
+
+def drink_requirements(c):
+    out = []
+    for line in c["ing"]:
+        for grp in line_requirements(line):
+            if grp not in out:
+                out.append(grp)
+    return out
 
 def link_ingredients(line):
-    """Wrap the first matching ingredient keyword in a jump link to the appendix."""
-    low = line.lower()
-    for kw, item in ANCHOR_MAP:
-        i = low.find(kw.lower())
-        if i == -1:
-            continue
-        return (line[:i] + '<a class="jump" href="#%s" title="Jump to buying guide">%s</a>'
-                % (slugify(item), line[i:i+len(kw)]) + line[i+len(kw):])
+    """Link every bottle named in the line to its row in the buying guide."""
+    spans, _rest = resolve_line(line)
+    for st, e, item in sorted([x for x in spans if x[2]], reverse=True):
+        line = (line[:st]
+                + '<a class="jump" href="#%s" title="Jump to buying guide">%s</a>'
+                  % (slugify(item), line[st:e])
+                + line[e:])
     return line
 
 def brand_link(brand):
@@ -246,12 +270,14 @@ def appendix_html(sec):
         rows += """
       <div class="brow" id="%s">
         <div class="bitem">%s</div>
+        %s
         <div class="bcols">
           <div class="bcol"><span class="blab">First choice</span>%s</div>
           <div class="bcol"><span class="blab">Also works</span>%s</div>
         </div>
         <p class="bnote">%s</p>
-      </div>""" % (slugify(item), item, bottle_links(primary, ok, item), alt_html, note)
+      </div>""" % (slugify(item), item, own_block(slugify(item)),
+                   bottle_links(primary, ok, item), alt_html, note)
     return """
   <section class="apx" id="%s">
     <h3>%s</h3>
@@ -302,6 +328,32 @@ assert not _unmapped, "wave bottles missing from ohlq.WAVE_ITEMS: %s" % _unmappe
 _items = {item for sec in APPENDIX for item, _p, _a, _n in sec["rows"]}
 _stray = sorted(set(CATEGORIES) - _items)
 assert not _stray, "ohlq.CATEGORIES keys match no appendix item: %s" % _stray
+
+# Every word of every ingredient line must be claimed by ingredients.MAP or
+# PANTRY. A new recipe naming something unknown fails here rather than quietly
+# producing a drink whose requirements are wrong.
+_unknown = []
+for _g in GROUPS:
+    for _c in _g["cocktails"]:
+        for _line in _c["ing"]:
+            _spans, _rest = resolve_line(_line)
+            if _rest:
+                _unknown.append("%s: %r (unmatched: %r)" % (_c["name"], _line, _rest))
+assert not _unknown, ("ingredient text not in ingredients.MAP or PANTRY:\n  "
+                      + "\n  ".join(_unknown))
+
+# A requirement naming a row that does not exist is a bottle no checkbox can
+# ever satisfy, which would make a drink permanently unmakeable.
+REQS = {}
+for _g in GROUPS:
+    for _c in _g["cocktails"]:
+        REQS[_c["slug"]] = [[slugify(i) for i in grp] for grp in drink_requirements(_c)]
+_ghosts = sorted({i for _g in GROUPS for _c in _g["cocktails"]
+                  for grp in drink_requirements(_c) for i in grp} - _items)
+assert not _ghosts, "ingredients.MAP points at non-existent appendix items: %s" % _ghosts
+
+# id -> display name, for the ownership checkboxes and the "one short" message.
+BOTTLES = {slugify(i): i for i in sorted(_items)}
 
 nav = "".join('<a href="#%s">%s</a>' % (g["id"], g["title"]) for g in GROUPS)
 apx_nav = "".join('<a href="#%s">%s</a>' % (s["id"], s["title"]) for s in APPENDIX)
@@ -495,7 +547,7 @@ doc = """<!doctype html>
 
   %s
 
-  <div class="apxwrap">
+  <div class="apxwrap" id="apxwrap">
     <h2>What to buy</h2>
     <p class="lead">Brands chosen for how they perform in these specific recipes, not for prestige. First choice is the workhorse most bartenders reach for; the alternates are either legitimate substitutes or cheaper and easier to find. Every bottle has two links: OHLQ checks live Ohio Liquor stock, and Photo shows you the label so you can spot it on a shelf. Anything marked grocery / wine shop sits under 21 percent ABV, so Ohio does not sell it through OHLQ at all &mdash; look for it at Heinen's, Giant Eagle or a wine shop instead.</p>
     %s
@@ -518,8 +570,8 @@ doc = """<!doctype html>
 %s
 </body>
 </html>
-""" % (CSS, tally_html, dash_html(TOTAL), nav, apx_nav, groups_html,
-       apx_sections, waves_html, notes_html, track_js(SLUGS))
+""" % (CSS, tally_html, dash_html(TOTAL) + TONIGHT_HTML, nav, apx_nav, groups_html,
+       apx_sections, waves_html, notes_html, track_js(SLUGS, REQS, BOTTLES))
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "index.html")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

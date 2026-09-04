@@ -63,12 +63,17 @@ the merge logic on restore, and the reset confirm path.
 ## P1 — Highest value for actually using this
 
 ### 4. "What can I make tonight?"
-Let each appendix bottle be marked as owned, then surface which of the 52 are fully makeable
-right now, and which are one bottle short (naming the bottle). This connects the recipe data
-and the appendix data that already exist and is probably the single most useful feature on
-this list.
-*Depends on:* a machine-readable ingredient → bottle mapping, which `ANCHOR_MAP` already
-approximates but should be promoted into the data rather than inferred by string matching.
+**Done.** Every buying-guide row has an "I have this" checkbox; the panel under the dashboard
+lists what is makeable now and what is one bottle short, naming the bottle.
+
+The dependency was real: `ANCHOR_MAP` could not be computed against, so it was promoted into
+`ingredients.py` as `MAP` + `PANTRY` and now drives both the jump links and the requirements.
+That fixed three latent bugs on the way — `gin` matching inside `ginger`, only the first match
+in a line ever resolving, and bare `rye` / `aged blended rum` / `Jamaican dark rum` matching
+nothing at all.
+
+Requirements are OR-groups, so `bourbon or rye` is satisfied by either. Pantry items never
+count. Owned bottles are stored under `bar52:bottles:v1` and ride along in export/restore.
 
 ### 5. Shopping list generator
 Pick a set of upcoming drinks, get back the bottles you don't own, split into an OHLQ trip and

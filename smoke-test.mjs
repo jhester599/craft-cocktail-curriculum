@@ -219,5 +219,137 @@ const v1 = {
        [...channels].some(c => c.startsWith('Truffles '))));
 }
 
+// ---------------------------------------------------------------------------
+// What can I make tonight: ownership checkboxes and makeability
+// ---------------------------------------------------------------------------
+{
+  const OWN_KEY = 'bar52:bottles:v1';
+  const tick = (w, id) => {
+    const box = w.document.querySelector(`.own input[data-bottle="${id}"]`);
+    box.checked = true;
+    box.dispatchEvent(new w.Event('change', { bubbles: true }));
+    return box;
+  };
+  const panelText = w => w.document.getElementById('tonight').textContent;
+  const listed = w => [...w.document.querySelectorAll('#tonight a[href^="#"]')]
+    .map(a => a.getAttribute('href').slice(1));
+
+  {
+    const { window: w } = load();
+    ok('every buying-guide row has an ownership checkbox',
+       w.document.querySelectorAll('.brow').length ===
+       w.document.querySelectorAll('.own input[data-bottle]').length);
+    ok('tonight panel exists', !!w.document.getElementById('tonight'));
+    ok('empty shelf shows the prompt, not a zero list',
+       /Tick/.test(panelText(w)) && !/ready to make now/.test(panelText(w)));
+  }
+
+  // Last Word = gin + green Chartreuse + maraschino. Tick all three.
+  {
+    const { window: w } = load();
+    tick(w, 'b-london-dry-gin');
+    tick(w, 'b-green-chartreuse');
+    ok('two of three bottles leaves it one short',
+       /one bottle short/.test(panelText(w)) && listed(w).includes('last-word'));
+    ok('the missing bottle is named', /Maraschino liqueur/.test(panelText(w)));
+
+    tick(w, 'b-maraschino-liqueur');
+    ok('all three bottles makes it makeable',
+       /ready to make now/.test(panelText(w)) && listed(w).includes('last-word'));
+    ok('a makeable drink is no longer listed as short',
+       !/Maraschino liqueur/.test(panelText(w)));
+  }
+
+  // OR-group: the Boulevardier takes bourbon OR rye, plus vermouth and Campari.
+  {
+    const { window: w } = load();
+    tick(w, 'b-sweet-vermouth');
+    tick(w, 'b-campari');
+    tick(w, 'b-rye-100-proof');
+    ok('rye alone satisfies the "bourbon or rye" requirement',
+       listed(w).includes('boulevardier') && /ready to make now/.test(panelText(w)));
+  }
+  {
+    const { window: w } = load();
+    tick(w, 'b-sweet-vermouth');
+    tick(w, 'b-campari');
+    tick(w, 'b-bourbon');
+    ok('bourbon alone satisfies it too', listed(w).includes('boulevardier'));
+  }
+
+  // Persistence and round-trip.
+  {
+    const { window: w } = load();
+    tick(w, 'b-campari');
+    const saved = JSON.parse(w.localStorage.getItem(OWN_KEY) || '{}');
+    ok('ownership persists under its own key', saved['b-campari'] === true);
+    ok('ownership does not leak into the notes key',
+       !('b-campari' in JSON.parse(w.localStorage.getItem('bar52:v2') || '{}')));
+  }
+  {
+    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    ok('saved ownership restores the checkbox on load',
+       w.document.querySelector('.own input[data-bottle="b-campari"]').checked === true);
+    ok('an owned row is marked', !!w.document.querySelector('.brow#b-campari.have'));
+  }
+
+  // Export/restore has to carry the shelf, or a restore silently empties it.
+  {
+    const { window: w } = load();
+    tick(w, 'b-campari');
+    let captured = null;
+    w.Blob = class { constructor(parts) { captured = parts.join(''); } };
+    w.URL.createObjectURL = () => 'blob:x';
+    w.URL.revokeObjectURL = () => {};
+    w.document.getElementById('export').click();
+    const payload = JSON.parse(captured);
+    ok('export carries owned bottles', payload.bottles && payload.bottles['b-campari'] === true);
+    ok('export still carries drink entries', 'entries' in payload);
+  }
+  {
+    const { window: w } = load();
+    const file = JSON.stringify({ app: '52-weeks-behind-the-bar', version: 2,
+                                  entries: {}, bottles: { 'b-campari': true } });
+    const realFR = w.FileReader;
+    w.FileReader = class { readAsText() { this.result = file; this.onload(); } };
+    const input = w.document.getElementById('importfile');
+    Object.defineProperty(input, 'files', { value: [{ name: 'n.json' }], configurable: true });
+    input.dispatchEvent(new w.Event('change'));
+    w.FileReader = realFR;
+    ok('restore merges owned bottles',
+       JSON.parse(w.localStorage.getItem(OWN_KEY) || '{}')['b-campari'] === true);
+    ok('restore ticks the checkbox it merged',
+       w.document.querySelector('.own input[data-bottle="b-campari"]').checked === true);
+  }
+  {
+    // A pre-ownership export has no `bottles` key; that must not wipe the shelf.
+    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    const file = JSON.stringify({ app: '52-weeks-behind-the-bar', version: 2, entries: {} });
+    const realFR = w.FileReader;
+    w.FileReader = class { readAsText() { this.result = file; this.onload(); } };
+    const input = w.document.getElementById('importfile');
+    Object.defineProperty(input, 'files', { value: [{ name: 'n.json' }], configurable: true });
+    input.dispatchEvent(new w.Event('change'));
+    w.FileReader = realFR;
+    ok('restoring an older export leaves the shelf alone',
+       JSON.parse(w.localStorage.getItem(OWN_KEY) || '{}')['b-campari'] === true);
+  }
+  {
+    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    w.confirm = () => true;
+    w.document.getElementById('reset').click();
+    ok('reset clears the shelf too', !w.localStorage.getItem(OWN_KEY));
+    ok('reset unticks the checkboxes',
+       w.document.querySelector('.own input[data-bottle="b-campari"]').checked === false);
+  }
+
+  // Clarified Milk Punch asks for "12 oz spirit", so it needs no specific bottle.
+  {
+    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    ok('a drink with no bottle requirements is always makeable',
+       listed(w).includes('clarified-milk-punch'));
+  }
+}
+
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
 process.exit(fail ? 1 : 0);

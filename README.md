@@ -15,6 +15,7 @@ no dependencies. Host it on GitHub Pages as-is.
 | `tracker.py` | The progress/notes UI — CSS, dashboard markup, and the localStorage JavaScript. |
 | `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
+| `ingredients.py` | **Ingredient → bottle map.** The ordered keyword table behind both the in-recipe jump links and the "what can I make tonight?" requirements. Order matters; see the module docstring. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
 
 ## Build
@@ -28,7 +29,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 53 tracker checks + 14 link-checker checks
+npm test                  # 74 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -55,7 +56,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
    site. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 53 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 74 jsdom checks plus 14 covering the link checker.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -91,11 +92,26 @@ covered without depending on YouTube being reachable.
 - **Metric amounts** are generated, not stored. `add_metric()` in `build.py` rewrites
   `¾ oz` into `¾ oz (22.5 ml)` using a 30 ml jigger convention. Never hand-write ml
   into `data.py`.
-- **Recipe → appendix links** come from `ANCHOR_MAP` in `build.py`: an ordered list of
-  (keyword, appendix item name) pairs. Longest/most specific keywords must come first —
-  `"aged Jamaican rum"` has to precede any bare `"rum"` entry. Appendix row ids are
-  slugified from the item name, so renaming an appendix item breaks its inbound links
-  unless `ANCHOR_MAP` is updated to match.
+- **Recipe → appendix links** and **bottle requirements** both come from `MAP` in
+  `ingredients.py`: an ordered list of (keyword, appendix item name) pairs. This replaced
+  the old `ANCHOR_MAP`, which linked only the *first* match in a line and matched on bare
+  substrings — so `gin` matched inside `ginger`, and "bourbon or rye" lost half its
+  meaning. `resolve_line()` in `build.py` now claims non-overlapping, word-boundary spans,
+  most specific keyword first, so `"aged Jamaican rum"` still has to precede any bare
+  `"rum"` entry. Appendix row ids are slugified from the item name, so renaming an
+  appendix item breaks its inbound links unless `ingredients.MAP` is updated to match.
+
+  Two build assertions keep this honest: every word of every ingredient line must be
+  claimed by `MAP` or by `PANTRY` (the fresh/storecupboard list), and every item `MAP`
+  names must exist as an appendix row. A new recipe naming something unknown fails the
+  build rather than quietly producing wrong requirements.
+
+- **What can I make tonight?** Each buying-guide row carries an "I have this" checkbox.
+  The panel under the dashboard lists what is fully makeable and what is one bottle short,
+  naming the bottle. Requirements are OR-groups — the Boulevardier's `bourbon or rye` is
+  satisfied by either — computed at build time from the recipe text and baked into the
+  page as `REQS`. Pantry items (citrus, simple syrup, egg white, soda) are never
+  requirements, so they can never block a drink.
 - **OHLQ links** are real ohlq.com URLs, held in `ohlq.py` and applied by `ohlq_url()`
   in three tiers: an exact `PRODUCTS` page for a bottle if one is known, else the
   `CATEGORIES` browse page for its appendix item, else the original
@@ -140,6 +156,12 @@ Stored in `localStorage` under the key `bar52:v2`, shaped as:
 
 Keys are cocktail slugs, so reordering or inserting drinks is safe &mdash; notes stay with
 their cocktail no matter what number it is displayed as.
+
+Owned bottles live separately, under `bar52:bottles:v1`, shaped as
+`{ "b-campari": true }` where the key is the appendix row's DOM id. It is a separate key
+because it describes the shelf rather than the drinks, and losing one should never take
+the other with it. Export/restore carries it as a `bottles` field; an older export without
+that field leaves the shelf untouched rather than clearing it.
 
 **Migration from `bar52:v1`.** v1 keyed entries off the sequential drink number. On first
 load the tracker reads v1, maps each numeric key through the current build order

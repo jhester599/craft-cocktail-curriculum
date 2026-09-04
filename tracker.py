@@ -7,6 +7,41 @@
 import json
 
 TRACK_CSS = '''
+/* ---- own-this checkbox on each buying-guide row ---- */
+.own{display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  min-height:44px;padding:2px 2px;margin:-6px 0 6px;font-size:13.5px;color:var(--muted);
+  -webkit-tap-highlight-color:transparent}
+.own input{appearance:none;-webkit-appearance:none;margin:0;flex:none;
+  width:20px;height:20px;border:1px solid var(--line);background:var(--panel-2);
+  border-radius:2px;position:relative;cursor:pointer}
+.own input:checked{border-color:var(--chart);background:var(--chart)}
+.own input:checked::after{content:"";position:absolute;left:6px;top:2px;
+  width:5px;height:10px;border:solid var(--ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.own input:focus-visible{outline:2px solid var(--chart);outline-offset:2px}
+.own:hover{color:var(--bone)}
+.brow.have{border-left:2px solid var(--chart)}
+.brow.have .own{color:var(--chart)}
+
+/* ---- what can I make tonight ---- */
+.tonight{background:var(--panel);border:1px solid var(--line);
+  border-left:2px solid var(--chart);padding:20px 18px;margin:0 0 18px}
+.tonight h3{font-size:20px;margin:0 0 4px}
+.tonight .tsub{color:var(--muted);font-size:14px;margin:0 0 14px}
+.tonight .tgroup{margin-bottom:16px}
+.tonight .tgroup:last-child{margin-bottom:0}
+.tonight .tlab{display:block;font-size:12px;letter-spacing:.02em;color:var(--muted);
+  margin-bottom:7px;text-transform:uppercase}
+.tonight .tlab b{color:var(--chart);font-family:"Bodoni Moda",Georgia,serif;
+  font-size:15px;letter-spacing:0}
+.tonight ul{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
+.tonight li a{display:inline-block;text-decoration:none;font-size:14px;
+  border:1px solid var(--line);background:var(--panel-2);padding:7px 11px;
+  min-height:36px;line-height:20px}
+.tonight li a:hover,.tonight li a:focus-visible{border-color:var(--chart);color:var(--chart)}
+.tonight li .short{color:var(--brass);font-size:12.5px}
+.tonight .tempty{color:var(--muted);font-size:14.5px;margin:0}
+.tonight .tempty a{color:var(--chart)}
+
 /* ---- progress dashboard ---- */
 .dash{background:var(--panel);border:1px solid var(--line);padding:20px;margin:30px 0 0}
 .dash-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;justify-content:space-between}
@@ -91,8 +126,15 @@ TRACK_JS = r'''
 (function () {
   // Ordered slugs, build-time. Index i is the drink displayed as number i+1.
   var SLUGS = __SLUGS__;
+  // slug -> list of OR-groups of bottle ids. [["b-bourbon","b-rye-100-proof"]]
+  // means bourbon OR rye satisfies that requirement.
+  var REQS = __REQS__;
+  var BOTTLES = __BOTTLES__;
   var KEY = "bar52:v2";
   var OLD_KEY = "bar52:v1";
+  // Which bottles you own. Separate key: it is about the shelf, not the drinks,
+  // and losing one should never take the other with it.
+  var OWN_KEY = "bar52:bottles:v1";
 
   function read(k) {
     try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; }
@@ -126,6 +168,12 @@ TRACK_JS = r'''
   var data = read(KEY);
   if (!data || typeof data !== "object") data = migrate();
 
+  var own = read(OWN_KEY);
+  if (!own || typeof own !== "object") own = {};
+  function saveOwn() {
+    try { localStorage.setItem(OWN_KEY, JSON.stringify(own)); } catch (e) {}
+  }
+
   var flash = document.getElementById("flash"), flashT;
   function save() {
     try {
@@ -147,6 +195,77 @@ TRACK_JS = r'''
   }
 
   var filter = "all";
+
+  // A drink is makeable when every OR-group has at least one owned bottle.
+  // Missing groups are reported by name so "one bottle short" can say which.
+  function missingFor(slug) {
+    var groups = REQS[slug] || [], out = [];
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i], have = false;
+      for (var j = 0; j < g.length; j++) if (own[g[j]]) { have = true; break; }
+      if (!have) out.push(g);
+    }
+    return out;
+  }
+
+  function nameFor(group) {
+    var names = [];
+    for (var i = 0; i < group.length; i++) names.push(BOTTLES[group[i]] || group[i]);
+    return names.join(" or ");
+  }
+
+  function renderTonight() {
+    var box = document.getElementById("tonight");
+    if (!box) return;
+    var ownedCount = 0;
+    for (var k in own) if (own[k]) ownedCount++;
+
+    var now = [], oneShort = [];
+    for (var i = 0; i < SLUGS.length; i++) {
+      var slug = SLUGS[i];
+      var card = document.querySelector('.drink[data-id="' + slug + '"]');
+      if (!card) continue;
+      var name = card.querySelector("h3") ? card.querySelector("h3").textContent : slug;
+      var miss = missingFor(slug);
+      if (miss.length === 0) now.push({ slug: slug, name: name });
+      else if (miss.length === 1) oneShort.push({ slug: slug, name: name, need: nameFor(miss[0]) });
+    }
+
+    if (ownedCount === 0) {
+      box.innerHTML =
+        '<h3>What can I make tonight?</h3>' +
+        '<p class="tempty">Tick <b>I have this</b> against the bottles on your shelf in ' +
+        '<a href="#apxwrap">the buying guide</a>, and this will tell you which of the ' +
+        SLUGS.length + ' you can make right now &mdash; and which are one bottle short.</p>';
+      return;
+    }
+
+    function list(items, extra) {
+      var out = '<ul>';
+      for (var i = 0; i < items.length; i++) {
+        out += '<li><a href="#' + items[i].slug + '">' + items[i].name +
+               (extra ? ' <span class="short">&middot; ' + items[i].need + '</span>' : '') +
+               '</a></li>';
+      }
+      return out + '</ul>';
+    }
+
+    var html =
+      '<h3>What can I make tonight?</h3>' +
+      '<p class="tsub">' + ownedCount + ' bottle' + (ownedCount === 1 ? '' : 's') +
+      ' on the shelf.</p>';
+
+    html += '<div class="tgroup"><span class="tlab"><b>' + now.length + '</b> ready to make now</span>';
+    html += now.length ? list(now, false)
+                       : '<p class="tempty">Nothing yet &mdash; keep ticking.</p>';
+    html += '</div>';
+
+    if (oneShort.length) {
+      html += '<div class="tgroup"><span class="tlab"><b>' + oneShort.length +
+              '</b> one bottle short</span>' + list(oneShort, true) + '</div>';
+    }
+    box.innerHTML = html;
+  }
 
   function render() {
     var made = 0, cards = document.querySelectorAll(".drink");
@@ -190,6 +309,8 @@ TRACK_JS = r'''
     document.getElementById("pnote").textContent = made === 0
       ? "Nothing logged yet"
       : (SLUGS.length - made) + " to go" + (rated ? " \u00b7 average rating " + (sum / rated).toFixed(1) : "");
+
+    renderTonight();
   }
 
   document.addEventListener("click", function (e) {
@@ -221,6 +342,17 @@ TRACK_JS = r'''
     }
   });
 
+  document.addEventListener("change", function (e) {
+    var box = e.target.closest(".own input[data-bottle]");
+    if (!box) return;
+    var id = box.dataset.bottle;
+    if (box.checked) own[id] = true; else delete own[id];
+    var row = box.closest(".brow");
+    if (row) row.classList.toggle("have", !!box.checked);
+    saveOwn();
+    renderTonight();
+  });
+
   var noteT;
   document.addEventListener("input", function (e) {
     if (!e.target.classList.contains("note")) return;
@@ -237,7 +369,8 @@ TRACK_JS = r'''
   });
 
   document.getElementById("export").addEventListener("click", function () {
-    var payload = { app: "52-weeks-behind-the-bar", version: 2, saved: new Date().toISOString(), entries: data };
+    var payload = { app: "52-weeks-behind-the-bar", version: 2,
+                    saved: new Date().toISOString(), entries: data, bottles: own };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -273,6 +406,15 @@ TRACK_JS = r'''
                     .join("\n\n") || undefined
           };
         }
+        // Older exports have no `bottles` key; absent means "nothing to merge",
+        // never "the shelf is empty".
+        if (parsed.bottles && typeof parsed.bottles === "object") {
+          for (var b in parsed.bottles) {
+            if (parsed.bottles[b]) own[b] = true;
+          }
+          saveOwn();
+          fillOwn();
+        }
         save();
         fillNotes();
         flash.textContent = "Restored";
@@ -286,11 +428,13 @@ TRACK_JS = r'''
   });
 
   document.getElementById("reset").addEventListener("click", function () {
-    if (!confirm("Erase every mark, rating and note? Download your notes first if you want a copy.")) return;
+    if (!confirm("Erase every mark, rating, note and owned bottle? Download your notes first if you want a copy.")) return;
     data = {};
-    try { localStorage.removeItem(KEY); } catch (e) {}
+    own = {};
+    try { localStorage.removeItem(KEY); localStorage.removeItem(OWN_KEY); } catch (e) {}
     // v1 is left alone on purpose: it is the pre-migration backup.
     fillNotes();
+    fillOwn();
     render();
   });
 
@@ -304,7 +448,18 @@ TRACK_JS = r'''
     }
   }
 
+  function fillOwn() {
+    var boxes = document.querySelectorAll(".own input[data-bottle]");
+    for (var i = 0; i < boxes.length; i++) {
+      var el = boxes[i], has = !!own[el.dataset.bottle];
+      el.checked = has;
+      var row = el.closest(".brow");
+      if (row) row.classList.toggle("have", has);
+    }
+  }
+
   fillNotes();
+  fillOwn();
   render();
 })();
 </script>
@@ -315,9 +470,23 @@ def dash_html(total):
     return _DASH_HTML % {"total": total}
 
 
-def track_js(slugs):
-    """The storage JS with the build's ordered slug list baked in."""
-    return TRACK_JS.replace("__SLUGS__", json.dumps(list(slugs)))
+def track_js(slugs, reqs, bottles):
+    """The storage JS with the build's slugs, requirements and bottles baked in."""
+    return (TRACK_JS
+            .replace("__SLUGS__", json.dumps(list(slugs)))
+            .replace("__REQS__", json.dumps(reqs, sort_keys=True))
+            .replace("__BOTTLES__", json.dumps(bottles, sort_keys=True, ensure_ascii=False)))
+
+
+def own_block(bottle_id):
+    """The "I have this" checkbox for one buying-guide row."""
+    return ('<label class="own"><input type="checkbox" data-bottle="%s">'
+            '<span>I have this</span></label>' % bottle_id)
+
+
+# Filled in by the tracker JS once it knows what is on the shelf.
+TONIGHT_HTML = '<section class="tonight" id="tonight"></section>'
+
 
 
 def track_block(slug):
