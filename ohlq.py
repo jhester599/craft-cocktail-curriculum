@@ -15,8 +15,16 @@ Three tiers, best first, applied by `ohlq_url()` in build.py:
 HOW THIS DATA WAS GATHERED, AND WHAT THAT IS WORTH
 --------------------------------------------------
 Every path here came from search results that returned an indexed ohlq.com URL.
-None of them was fetched: ohlq.com is not reachable from the build environment,
-so no entry has been confirmed to return HTTP 200.
+ohlq.com is not reachable from the build environment, so none was fetched during
+the build - but 33 distinct URLs the page produced were opened by hand on
+2026-09-04 and every one resolved. Two mappings were corrected by that pass:
+Campari was confirmed to sit under aperitif rather than amaro, and aged Jamaican
+rum was found under `dark` rather than `gold`. The Appleton Estate 12 product
+entry was added while making those corrections and so has NOT been opened.
+
+Anything added later has NOT been through that check. Open a new URL before
+adding it, and re-run the check if links start looking stale - see the README
+for how to regenerate the list of distinct URLs.
 
 CATEGORIES is the sturdier half. Each of those paths appeared repeatedly across
 independent searches, they follow one obvious scheme (`/liquor/<spirit>` plus
@@ -48,6 +56,9 @@ PRODUCTS = {
     "Pernod Absinthe": "/liquor/cordial/pernod-absinthe",
     "Smith & Cross": "/liquor/rum/dark/smith-cross-traditional-jamaica-rum",
     "Del Maguey Vida": "/liquor/tequila/mezcal/del-maguey-vida-mezcal",
+    # OHLQ lists the 12-year as "Appleton Estate Rare Casks 12 YR".
+    "Appleton Estate 12 Year": "/liquor/rum/dark/appleton-estate-rare-casks-12-yr",
+    "Appleton Estate 12": "/liquor/rum/dark/appleton-estate-rare-casks-12-yr",
     "El Tesoro Reposado": "/liquor/tequila/reposado/el-tesoro-reposado-tequila",
     "Sipsmith": "/liquor/gin/london-dry/sipsmith-london-dry-gin",
     "Macchu Pisco": "/liquor/brandy/macchu-pisco",
@@ -82,7 +93,7 @@ CATEGORIES = {
 
     # Rum
     "Overproof Jamaican": "/liquor/rum?producttype=overproof",
-    "Aged Jamaican": "/liquor/rum?producttype=gold",
+    "Aged Jamaican": "/liquor/rum?producttype=dark",
     "Demerara": "/liquor/rum?producttype=dark",
     "Blackstrap": "/liquor/rum?producttype=dark",
     "Rhum agricole vieux": "/liquor/rum?producttype=agricole",

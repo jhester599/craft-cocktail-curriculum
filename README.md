@@ -83,9 +83,19 @@ The build is deterministic: same inputs, byte-identical output, no timestamps.
   `site:ohlq.com` Google search. Currently 14 product links and 139 category links,
   with no bottle left on the search fallback.
 
-  **These URLs have not been fetched.** ohlq.com is unreachable from the build
-  environment, so every path was taken from indexed search results rather than
-  confirmed with a request. Category paths are the sturdier half — they recur across
+  **33 distinct URLs were opened by hand on 2026-09-04 and every one resolved**, which
+  also corrected two mappings: Campari sits under `aperitif`, not `amaro`, and aged
+  Jamaican rum under `dark`, not `gold`. One URL added while making those corrections —
+  the Appleton Estate 12 product page — postdates that pass and has not been opened.
+  Nothing is verified at build time —
+  ohlq.com is unreachable from the build environment, so paths come from indexed
+  search results rather than a live request. To re-check after edits, list the
+  distinct URLs the page actually produces:
+
+  ```bash
+  python3 -c "import re,io;print('\n'.join(sorted({m.replace('&amp;','&') for m in re.findall(r'href=\"(https://www\.ohlq\.com[^\"]+)\"', io.open('docs/index.html',encoding='utf-8').read())})))"
+  ```
+ Category paths are the sturdier half — they recur across
   independent searches, follow one scheme, and survive a product being renamed or
   delisted. Product slugs cannot be derived from a brand name (`Smith &amp; Cross` lives
   at `smith-cross-traditional-jamaica-rum`), so `PRODUCTS` is small on purpose and only
