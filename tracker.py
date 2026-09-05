@@ -70,14 +70,18 @@ body{padding-top:var(--topbar)}
 @media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
 
 /* ---- start-here link ---- */
-.starthere{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
-  font-size:13.5px;color:var(--muted);min-height:44px;padding:0 4px}
-.starthere:hover,.starthere:focus-visible{color:var(--chart)}
+/* Matches the buttons beside it: as a bare text link it did not read as
+   something you could press, particularly on a phone. */
+.starthere{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+  font-size:13.5px;color:var(--muted);min-height:44px;padding:0 13px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:2px}
+.starthere:hover,.starthere:focus-visible{color:var(--chart);border-color:var(--chart)}
 .starthere svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5}
-/* Louder until there is something saved: a first-time visitor needs it, and
+/* Louder still until there is something saved: a first-time visitor needs it,
    someone who has been logging drinks for a month does not. */
-.starthere.new{color:var(--chart);border:1px solid var(--line);border-radius:2px;
-  background:var(--panel-2);padding:0 12px}
+.starthere.new{color:var(--ink);background:var(--chart);border-color:var(--chart);
+  font-weight:700}
+.starthere.new:hover,.starthere.new:focus-visible{color:var(--ink);opacity:.9}
 
 /* ---- cross-device sync ---- */
 .sync{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
@@ -258,8 +262,9 @@ SYNC_DOT = ('''<button class="syncdot" id="syncdot" type="button"
             title="Sync now"><i></i></button>''')
 
 SYNC_HTML = '''<div class="sync" id="sync">
+      <button id="synccode" type="button">My sync code</button>
+      <button id="synclink" type="button">Link a device</button>
       <button id="syncnow" type="button">Sync now</button>
-      <button id="synccode" type="button">Sync code</button>
       <span class="syncstat" id="syncstat"></span>
     </div>'''
 
@@ -809,7 +814,10 @@ TRACK_JS = r'''
         p_payload: { version: 2, profile: current, entries: data, bottles: own }
       });
     }).then(function () {
-      syncStatus("Synced " + new Date().toLocaleTimeString(), "good");
+      var n = Object.keys(data).length;
+      syncStatus("Synced " + new Date().toLocaleTimeString() +
+                 (n ? " \u00b7 " + n + " drink" + (n === 1 ? "" : "s") + " logged" : ""),
+                 "good");
     }).catch(function (e) {
       // Local data is untouched by a failure, so this is a notice, not a loss.
       syncStatus("Sync failed (" + e.message + ") \u2014 your notes are safe here.", "bad");
@@ -822,21 +830,49 @@ TRACK_JS = r'''
     syncT = setTimeout(function () { syncNow(true); }, 4000);
   }
 
-  function manageCode() {
-    var code = getCode();
-    var msg = code
-      ? "Sync code for " + current + ":\n\n" + code +
-        "\n\nEnter this on another device to see the same notes there.\n" +
-        "Replacing it with a different code joins that one instead."
-      : "No sync code for " + current + " yet.\n\n" +
-        "Leave this empty and press OK to create one, or paste a code from " +
-        "another device to join it.";
-    var raw = prompt(msg, code || "");
+  // Groups of four to read off one screen and type into another. The groups
+  // are cosmetic: normalise() strips them again.
+  function formatCode(c) {
+    return String(c || "").replace(/(.{4})(?=.)/g, "$1-");
+  }
+  function normalise(raw) {
+    return String(raw || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  }
+
+  // Two separate buttons rather than one prompt that did both. The old single
+  // "Sync code" created a new code when you left the box empty, so pressing it
+  // on a second device minted a second code instead of joining the first - two
+  // devices, two codes, nothing to sync, and no hint that was what happened.
+  function showMyCode() {
+    var code = getCode(), fresh = false;
+    if (!code) { code = newCode(); setCode(code); fresh = true; }
+    alert(
+      (fresh ? "Here is the sync code for " + current + ".\n\n"
+             : "Sync code for " + current + ".\n\n") +
+      formatCode(code) +
+      "\n\nOn your OTHER device, open this site, press \"Link a device\" and " +
+      "type this in. Dashes and capitals do not matter."
+    );
+    syncStatus("Code ready \u2014 type it into your other device", "good");
+    if (fresh) syncNow(true);
+  }
+
+  function linkDevice() {
+    var raw = prompt(
+      "Type the code from your other device.\n\n" +
+      "Get it there by pressing \"My sync code\". Dashes and capitals do not " +
+      "matter.\n\nThis device's notes will be merged with that device's, not " +
+      "replaced.", "");
     if (raw === null) return;
-    var v = String(raw).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-    if (!v) v = newCode();
-    if (v.length < 20) { alert("A sync code needs at least 20 characters."); return; }
+    var v = normalise(raw);
+    if (!v) return;
+    if (v.length < CODE_LEN) {
+      alert("That code looks too short. It should be " + CODE_LEN +
+            " letters and numbers, like " + formatCode(new Array(CODE_LEN + 1).join("X")) + ".");
+      return;
+    }
     setCode(v);
+    syncStatus("Linking\u2026");
     syncNow();
   }
 
@@ -962,7 +998,8 @@ TRACK_JS = r'''
     document.getElementById("syncnow").addEventListener("click", function () { syncNow(); });
     var dot = document.getElementById("syncdot");
     if (dot) dot.addEventListener("click", function () { syncNow(); });
-    document.getElementById("synccode").addEventListener("click", manageCode);
+    document.getElementById("synccode").addEventListener("click", showMyCode);
+    document.getElementById("synclink").addEventListener("click", linkDevice);
   }
   document.getElementById("addprofile").addEventListener("click", addProfile);
   document.getElementById("renameprofile").addEventListener("click", renameProfile);

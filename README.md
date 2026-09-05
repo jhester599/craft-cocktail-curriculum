@@ -36,7 +36,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 152 tracker checks + 14 link-checker checks
+npm test                  # 165 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -63,7 +63,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    HTML, editing `data.py` without rebuilding would silently ship a stale site. The check
    covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 152 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 165 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -215,9 +215,22 @@ than a modal so the URL can be sent along with the site link.
 
 ## Cross-device sync
 
-Each profile can hold a **sync code** — 26 random characters, generated in the browser, stored
-at `bar52:code:<initials>`. Enter the same code on another device and both see the same notes.
-The code is the identity *and* the password: it names a row that cannot be enumerated.
+Each profile can hold a **sync code** — 12 random characters, generated in the browser, stored
+at `bar52:code:<initials>`, shown in groups of four (`K7MP-2XQR-9TVB`). The grouping is
+cosmetic; separators and case are stripped, so `k7mp2xqr9tvb` is the same code. That is about
+59 bits, far past guessing over a network, and short enough to read off one phone and type into
+another. The code is the identity *and* the password: it names a row that cannot be enumerated.
+
+**Two buttons, and which device you press them on matters.** `My sync code` shows (or creates)
+this device's code — press it on the device you have been using. `Link a device` takes a code
+typed in from elsewhere — press it on the device you are adding. These were one button, which
+created a new code when the box was left empty; pressing it on a second device silently minted
+a second code, so the two devices tracked separately with no sign anything was wrong.
+
+`CODE_LENGTH` in `supabase.py` and the minimum length in `schema.sql` must agree. **Changing
+the length means re-running `schema.sql`** — the functions reject anything shorter than their
+own minimum, so a page issuing 12-character codes against functions that still demand 20 fails
+every sync. Codes issued at an older, longer length keep working.
 
 `docs/index.html` talks to Supabase with plain `fetch` against two RPC endpoints. No SDK, no
 toolchain — the page is still one self-contained file; what it gains is a *service* dependency,

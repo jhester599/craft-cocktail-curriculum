@@ -69,16 +69,28 @@ footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--line);
   <p>Your notes are stored in the browser you are using, so a phone and a laptop
   start out knowing nothing about each other. A <strong>sync code</strong> joins
   them up.</p>
-  <ol>
-    <li>On the device you have been using, press <kbd>Sync code</kbd>.</li>
-    <li>Leave the box empty and press OK. It makes you a code &mdash; 26 letters
-    and numbers.</li>
-    <li>Copy it down. Press <kbd>Sync code</kbd> again any time to see it.</li>
-    <li>On the other device, press <kbd>Sync code</kbd>, paste it in, press OK.</li>
-  </ol>
+  <p>Two buttons, and it matters which device you press each one on.</p>
+  <div class="card">
+    <h3>On the device you have been using</h3>
+    <p>Press <kbd>My sync code</kbd>. It shows a code like
+    <code>K7MP-2XQR-9TVB</code> &mdash; twelve letters and numbers in three
+    groups. Press it again any time to see it.</p>
+  </div>
+  <div class="card">
+    <h3>On the device you are adding</h3>
+    <p>Press <kbd>Link a device</kbd> and type that code in. Dashes and capitals
+    do not matter. Your notes on this device are merged with the other device's,
+    not replaced.</p>
+  </div>
   <p>Both now show the same notes. After that it syncs by itself: when you open
   the page, a few seconds after you change something, or whenever you press
   <kbd>Sync now</kbd>.</p>
+  <div class="card warn">
+    <h3>Do not press <kbd>My sync code</kbd> on the second device</h3>
+    <p>It would give that device a code of its own, and the two would go on
+    tracking separately with no sign that anything was wrong. On the second
+    device you want <kbd>Link a device</kbd>.</p>
+  </div>
   <div class="card good">
     <h3>Nothing is lost when two devices disagree</h3>
     <p>If you marked a drink on your phone and rated it on your laptop, you end up
@@ -121,8 +133,12 @@ footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--line);
     untouched &mdash; the sync just has not happened. Press <kbd>Sync now</kbd>
     again in a minute. If the site has been quiet for a week the server may be
     waking up, which takes about half a minute.</li>
-    <li><strong>Your other device shows nothing.</strong> Check both are on the
-    same code, and that the initials match on each.</li>
+    <li><strong>Your other device shows nothing.</strong> Press
+    <kbd>My sync code</kbd> on each and check they match. If they differ, you
+    probably pressed <kbd>My sync code</kbd> on the second device instead of
+    <kbd>Link a device</kbd> &mdash; press <kbd>Link a device</kbd> there and type
+    in the first device's code. Nothing is lost either way; the two sets of notes
+    merge when they meet.</li>
   </ul>
 
   <footer>

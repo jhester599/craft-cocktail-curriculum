@@ -40,8 +40,10 @@ set search_path = public
 as $$
 declare v jsonb;
 begin
-  -- Short codes would be worth brute-forcing. The client generates 26 chars.
-  if p_code is null or length(p_code) < 20 then
+  -- Short codes would be worth brute-forcing. The client generates 12 chars
+  -- of a 30-symbol alphabet, about 59 bits, which is not guessable over a
+  -- network. Anything much shorter would be.
+  if p_code is null or length(p_code) < 12 then
     raise exception 'invalid code';
   end if;
   select payload into v from shelves where code = p_code;
@@ -59,7 +61,7 @@ set search_path = public
 as $$
 declare t timestamptz;
 begin
-  if p_code is null or length(p_code) < 20 then
+  if p_code is null or length(p_code) < 12 then
     raise exception 'invalid code';
   end if;
   if p_payload is null or jsonb_typeof(p_payload) <> 'object' then

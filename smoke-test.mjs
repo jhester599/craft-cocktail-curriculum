@@ -653,7 +653,13 @@ const v1 = {
     ok('the guide has a title', /Start here/.test(g.querySelector('title').textContent));
     ok('the guide links back to the drinks',
        [...g.querySelectorAll('a')].some(a => a.getAttribute('href') === './'));
-    ok('the guide explains the sync code', /Sync code/.test(g.body.textContent));
+    ok('the guide names both sync buttons',
+       /My sync code/.test(g.body.textContent) && /Link a device/.test(g.body.textContent));
+    ok('the guide says which device each button belongs on',
+       /device you have been using/.test(g.body.textContent) &&
+       /device you are adding/.test(g.body.textContent));
+    ok('the guide warns against the mistake that breaks it',
+       /Do not press/.test(g.body.textContent));
     ok('the guide is blunt about what the code protects',
        /cannot be revoked/.test(g.body.textContent));
     ok('the guide says initials are not a password',
@@ -771,6 +777,79 @@ const v1 = {
   btn.click();
   drawer.querySelector('nav a').click();
   ok('choosing a section closes it', !drawer.classList.contains('open'));
+}
+
+// ---------------------------------------------------------------------------
+// Two-device linking, which is where the old single-prompt design failed
+// ---------------------------------------------------------------------------
+{
+  const settle = () => new Promise(r => setTimeout(r, 0));
+  // A stand-in for the server: one shelf, keyed by code, shared between the
+  // two "devices" below exactly as the real table would be.
+  const server = {};
+  function device(seed, typed) {
+    let alerted = null;
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) {
+        for (const [k, v] of Object.entries(seed || {})) {
+          w.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+        }
+        w.alert = m => { alerted = m; };
+        w.prompt = () => typed;
+        w.fetch = (url, init) => {
+          const fn = String(url).split('/rpc/')[1];
+          const b = JSON.parse(init.body);
+          if (fn === 'pull')
+            return Promise.resolve({ ok: true, status: 200,
+              json: () => Promise.resolve(server[b.p_code] || {}) });
+          server[b.p_code] = b.p_payload;
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve('t') });
+        };
+      },
+    });
+    return { w: dom.window, alerted: () => alerted };
+  }
+
+  // Device one: has notes, presses "My sync code".
+  const established = { 'bar52:profiles': ['YOU'], 'bar52:current': 'YOU' };
+  const one = device({ ...established,
+    'bar52:v2:YOU': { 'last-word': { made: true, note: 'from the laptop' } } });
+  one.w.document.getElementById('synccode').click();
+  await settle(); await settle();
+  const code = one.w.localStorage.getItem('bar52:code:YOU');
+
+  ok('the code is short enough to type', code.length === 12);
+  ok('it is shown in groups of four', /[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(one.alerted()));
+  ok('and it tells you which button to press on the other device',
+     /Link a device/.test(one.alerted()) && /OTHER device/.test(one.alerted()));
+  ok('device one uploaded its notes', !!server[code] && !!server[code].entries['last-word']);
+
+  // Device two: types the code in with the formatting and wrong case a person
+  // would actually produce.
+  const messy = code.replace(/(.{4})(?=.)/g, '$1-').toLowerCase();
+  const two = device({ ...established,
+    'bar52:v2:YOU': { 'jungle-bird': { made: true, note: 'from the phone' } } }, messy);
+  two.w.document.getElementById('synclink').click();
+  await settle(); await settle(); await settle();
+
+  ok('a dashed, lower-case code is accepted',
+     two.w.localStorage.getItem('bar52:code:YOU') === code);
+  const merged = JSON.parse(two.w.localStorage.getItem('bar52:v2:YOU') || '{}');
+  ok('device two receives device one\'s notes',
+     merged['last-word'] && merged['last-word'].note === 'from the laptop');
+  ok('and keeps its own', merged['jungle-bird'] && merged['jungle-bird'].note === 'from the phone');
+  ok('the shared shelf now holds both',
+     !!server[code].entries['last-word'] && !!server[code].entries['jungle-bird']);
+  ok('the status says it synced',
+     /Synced/.test(two.w.document.getElementById('syncstat').textContent));
+
+  // A code that is obviously too short is refused with an explanation.
+  const short = device({ ...established }, 'ABC');
+  short.w.document.getElementById('synclink').click();
+  await settle();
+  ok('a too-short code is refused', !short.w.localStorage.getItem('bar52:code:YOU'));
+  ok('and the refusal says how long it should be', /12/.test(short.alerted()));
 }
 
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');

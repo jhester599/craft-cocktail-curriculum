@@ -19,10 +19,18 @@ That keeps the repo usable by anyone who clones it without a Supabase project.
 URL = "https://dwvuljeiogcwrubcdhzc.supabase.co"
 PUBLISHABLE_KEY = "sb_publishable_9NnKS6exiv9CFD7vd--D8g_U5eN1NnL"
 
-# Sync codes are generated in the browser from crypto.getRandomValues. 26
-# characters of a 32-symbol alphabet is about 130 bits, and schema.sql refuses
-# anything under 20 characters.
-CODE_LENGTH = 26
+# Sync codes are generated in the browser from crypto.getRandomValues.
+#
+# 12 characters of a 30-symbol alphabet is about 59 bits: roughly 5x10^17
+# possibilities, which is far past brute-forcing over a network even without
+# rate limits, while being short enough to read off one phone and type into
+# another. The earlier 26 was security theatre at the cost of usability.
+# Displayed in groups of four; the separators are stripped before use, so
+# K7MP-2XQR-9TVB and k7mp2xqr9tvb are the same code.
+#
+# schema.sql refuses anything under 12, so the two must be changed together.
+# Codes issued at the old length keep working - they are longer, not shorter.
+CODE_LENGTH = 12
 
 
 def enabled():
