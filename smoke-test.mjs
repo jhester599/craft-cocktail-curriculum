@@ -2,7 +2,10 @@ import { JSDOM } from 'jsdom';
 import { readFileSync } from 'fs';
 const html = readFileSync('docs/index.html','utf8');
 
-const KEY = 'bar52:v2';
+// Storage is namespaced per profile; a fresh load creates the default "YOU".
+const PROFILE = 'YOU';
+const KEY = `bar52:v2:${PROFILE}`;
+const OWN = `bar52:bottles:v1:${PROFILE}`;
 const OLD_KEY = 'bar52:v1';
 
 let fail = 0;
@@ -223,7 +226,7 @@ const v1 = {
 // What can I make tonight: ownership checkboxes and makeability
 // ---------------------------------------------------------------------------
 {
-  const OWN_KEY = 'bar52:bottles:v1';
+  const OWN_KEY = OWN;
   const tick = (w, id) => {
     const box = w.document.querySelector(`.own input[data-bottle="${id}"]`);
     box.checked = true;
@@ -284,10 +287,10 @@ const v1 = {
     const saved = JSON.parse(w.localStorage.getItem(OWN_KEY) || '{}');
     ok('ownership persists under its own key', saved['b-campari'] === true);
     ok('ownership does not leak into the notes key',
-       !('b-campari' in JSON.parse(w.localStorage.getItem('bar52:v2') || '{}')));
+       !('b-campari' in JSON.parse(w.localStorage.getItem(KEY) || '{}')));
   }
   {
-    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    const { window: w } = load({ [OWN]: { 'b-campari': true } });
     ok('saved ownership restores the checkbox on load',
        w.document.querySelector('.own input[data-bottle="b-campari"]').checked === true);
     ok('an owned row is marked', !!w.document.querySelector('.brow#b-campari.have'));
@@ -323,7 +326,7 @@ const v1 = {
   }
   {
     // A pre-ownership export has no `bottles` key; that must not wipe the shelf.
-    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    const { window: w } = load({ [OWN]: { 'b-campari': true } });
     const file = JSON.stringify({ app: '52-weeks-behind-the-bar', version: 2, entries: {} });
     const realFR = w.FileReader;
     w.FileReader = class { readAsText() { this.result = file; this.onload(); } };
@@ -335,7 +338,7 @@ const v1 = {
        JSON.parse(w.localStorage.getItem(OWN_KEY) || '{}')['b-campari'] === true);
   }
   {
-    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    const { window: w } = load({ [OWN]: { 'b-campari': true } });
     w.confirm = () => true;
     w.document.getElementById('reset').click();
     ok('reset clears the shelf too', !w.localStorage.getItem(OWN_KEY));
@@ -345,9 +348,121 @@ const v1 = {
 
   // Clarified Milk Punch asks for "12 oz spirit", so it needs no specific bottle.
   {
-    const { window: w } = load({ 'bar52:bottles:v1': { 'b-campari': true } });
+    const { window: w } = load({ [OWN]: { 'b-campari': true } });
     ok('a drink with no bottle requirements is always makeable',
        listed(w).includes('clarified-milk-punch'));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profiles: several people, one device
+// ---------------------------------------------------------------------------
+{
+  const pick = (w, who) => {
+    const sel = w.document.getElementById('profile');
+    sel.value = who;
+    sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+  };
+
+  {
+    const { window: w } = load();
+    ok('a default profile exists',
+       JSON.parse(w.localStorage.getItem('bar52:profiles') || '[]')[0] === PROFILE);
+    ok('the picker lists it', w.document.getElementById('profile').value === PROFILE);
+  }
+
+  // Adoption: data saved before profiles existed belongs to someone.
+  {
+    const { window: w } = load({
+      'bar52:v2': { 'jungle-bird': { made: true, note: 'keep me' } },
+      'bar52:bottles:v1': { 'b-campari': true },
+    });
+    const adopted = JSON.parse(w.localStorage.getItem(KEY) || '{}');
+    ok('pre-profile notes are adopted, not stranded',
+       adopted['jungle-bird'] && adopted['jungle-bird'].note === 'keep me');
+    ok('pre-profile shelf is adopted',
+       JSON.parse(w.localStorage.getItem(OWN) || '{}')['b-campari'] === true);
+    ok('the pre-profile keys are left as a backup',
+       !!w.localStorage.getItem('bar52:v2') && !!w.localStorage.getItem('bar52:bottles:v1'));
+  }
+
+  // Adoption must not re-run over a profile that already has data.
+  {
+    const { window: w } = load({
+      'bar52:v2': { 'jungle-bird': { made: true, note: 'old' } },
+      [KEY]: { 'last-word': { made: true, note: 'newer' } },
+    });
+    const kept = JSON.parse(w.localStorage.getItem(KEY) || '{}');
+    ok('adoption never overwrites an existing profile',
+       kept['last-word'] && kept['last-word'].note === 'newer' && !kept['jungle-bird']);
+  }
+
+  // Isolation is the whole point.
+  {
+    const { window: w } = load({
+      'bar52:profiles': ['JRH', 'ABC'],
+      'bar52:current': 'JRH',
+      'bar52:v2:JRH': { 'last-word': { made: true, note: 'mine' } },
+      'bar52:bottles:v1:JRH': { 'b-campari': true },
+      'bar52:v2:ABC': {},
+    });
+    ok('starts on the remembered profile', w.document.getElementById('pcount').textContent === '1');
+    ok('three-letter initials are supported',
+       [...w.document.getElementById('profile').options].map(o => o.value).join() === 'JRH,ABC');
+
+    pick(w, 'ABC');
+    ok('switching shows the other profile as empty',
+       w.document.getElementById('pcount').textContent === '0');
+    ok('the shelf switches too',
+       w.document.querySelector('.own input[data-bottle="b-campari"]').checked === false);
+    ok('notes do not bleed across profiles',
+       w.document.querySelector('.note[data-id="last-word"]').value === '');
+    ok('the switch is remembered', w.localStorage.getItem('bar52:current') === 'ABC');
+
+    pick(w, 'JRH');
+    ok('switching back restores the first profile',
+       w.document.getElementById('pcount').textContent === '1' &&
+       w.document.querySelector('.note[data-id="last-word"]').value === 'mine');
+  }
+
+  // Writing under one profile must not touch another.
+  {
+    const { window: w } = load({
+      'bar52:profiles': ['JRH', 'ABC'],
+      'bar52:current': 'ABC',
+      'bar52:v2:JRH': { 'last-word': { made: true } },
+    });
+    w.document.querySelector('.drink[data-id="jungle-bird"] .mk').click();
+    ok('a write lands in the current profile',
+       !!JSON.parse(w.localStorage.getItem('bar52:v2:ABC') || '{}')['jungle-bird']);
+    ok('a write leaves other profiles alone',
+       JSON.stringify(JSON.parse(w.localStorage.getItem('bar52:v2:JRH'))) ===
+       JSON.stringify({ 'last-word': { made: true } }));
+  }
+
+  // Reset is scoped to the person in front of you.
+  {
+    const { window: w } = load({
+      'bar52:profiles': ['JRH', 'ABC'],
+      'bar52:current': 'ABC',
+      'bar52:v2:JRH': { 'last-word': { made: true } },
+      'bar52:v2:ABC': { 'jungle-bird': { made: true } },
+    });
+    w.confirm = () => true;
+    w.document.getElementById('reset').click();
+    ok('reset clears the current profile', !w.localStorage.getItem('bar52:v2:ABC'));
+    ok('reset spares the others', !!w.localStorage.getItem('bar52:v2:JRH'));
+  }
+
+  // Export should say who it belongs to, so a restore cannot land blind.
+  {
+    const { window: w } = load({ 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH' });
+    let captured = null;
+    w.Blob = class { constructor(parts) { captured = parts.join(''); } };
+    w.URL.createObjectURL = () => 'blob:x';
+    w.URL.revokeObjectURL = () => {};
+    w.document.getElementById('export').click();
+    ok('export names its profile', JSON.parse(captured).profile === 'JRH');
   }
 }
 

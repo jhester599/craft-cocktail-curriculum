@@ -7,6 +7,17 @@
 import json
 
 TRACK_CSS = '''
+/* ---- who is tracking ---- */
+.who{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.who label{font-size:12px;letter-spacing:.02em;color:var(--muted);text-transform:uppercase}
+.who select{font:inherit;font-size:15px;color:var(--bone);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:2px;padding:9px 10px;min-height:44px;
+  font-family:"Bodoni Moda",Georgia,serif;letter-spacing:.04em}
+.who select:focus-visible{outline:2px solid var(--chart);outline-offset:2px}
+.who button{font:inherit;font-size:13.5px;color:var(--muted);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:2px;padding:0 12px;min-height:44px;cursor:pointer}
+.who button:hover,.who button:focus-visible{color:var(--chart);border-color:var(--chart)}
+
 /* ---- own-this checkbox on each buying-guide row ---- */
 .own{display:inline-flex;align-items:center;gap:8px;cursor:pointer;
   min-height:44px;padding:2px 2px;margin:-6px 0 6px;font-size:13.5px;color:var(--muted);
@@ -95,6 +106,12 @@ TRACK_CSS = '''
 
 _DASH_HTML = '''
   <section class="dash" id="dash">
+    <div class="who">
+      <label for="profile">Tracking as</label>
+      <select id="profile" aria-label="Who is tracking"></select>
+      <button id="addprofile" type="button">Add someone</button>
+      <button id="renameprofile" type="button">Rename</button>
+    </div>
     <div class="dash-top">
       <span class="dash-count"><b id="pcount">0</b> of %(total)d made</span>
       <span class="dash-sub" id="pnote">Nothing logged yet</span>
@@ -114,9 +131,10 @@ _DASH_HTML = '''
       <button id="reset" class="danger">Clear everything</button>
       <span class="saveflash" id="flash">Saved</span>
     </div>
-    <p class="dash-note">Progress and notes are stored in this browser only, so they stay
-    private and work offline &mdash; but they do not follow you to another device or survive
-    clearing site data. Download your notes now and then and commit the file to the repo as a
+    <p class="dash-note">Each set of initials keeps its own progress, notes and shelf, so
+    several people can share one device without overwriting each other. Everything is stored
+    in this browser only, so it works offline &mdash; but it does not follow you to another
+    device or survive clearing site data. Download your notes now and then and commit the file to the repo as a
     backup; Restore reads it back in and merges it with whatever is already here.</p>
   </section>
 '''
@@ -130,11 +148,23 @@ TRACK_JS = r'''
   // means bourbon OR rye satisfies that requirement.
   var REQS = __REQS__;
   var BOTTLES = __BOTTLES__;
-  var KEY = "bar52:v2";
+  // Storage is namespaced per profile so several people can share one device.
+  // "JRH" -> bar52:v2:JRH and bar52:bottles:v1:JRH. The un-namespaced keys are
+  // the pre-profile layout; they are adopted once and then left alone.
+  var PROFILES_KEY = "bar52:profiles";
+  var CURRENT_KEY = "bar52:current";
+  var LEGACY_KEY = "bar52:v2";
+  var LEGACY_OWN_KEY = "bar52:bottles:v1";
   var OLD_KEY = "bar52:v1";
-  // Which bottles you own. Separate key: it is about the shelf, not the drinks,
-  // and losing one should never take the other with it.
-  var OWN_KEY = "bar52:bottles:v1";
+  var DEFAULT_PROFILE = "YOU";
+
+  function dataKey(who) { return "bar52:v2:" + who; }
+  function ownKey(who) { return "bar52:bottles:v1:" + who; }
+
+  // Up to three letters, so "JRH" works and nothing longer fits the control.
+  function cleanInitials(raw) {
+    return String(raw || "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase();
+  }
 
   function read(k) {
     try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; }
@@ -159,25 +189,60 @@ TRACK_JS = r'''
         out[k] = v1[k];
       }
     }
-    if (moved || Object.keys(out).length) {
-      try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
-    }
     return out;
   }
 
-  var data = read(KEY);
-  if (!data || typeof data !== "object") data = migrate();
+  var profiles = read(PROFILES_KEY);
+  if (!Array.isArray(profiles) || !profiles.length) profiles = [];
 
-  var own = read(OWN_KEY);
+  // First run under the profile scheme. Anything already saved belongs to
+  // whoever has been using this browser, so it is adopted into the first
+  // profile rather than stranded. The old keys stay put as a backup.
+  if (!profiles.length) {
+    profiles = [DEFAULT_PROFILE];
+    var legacy = read(LEGACY_KEY);
+    if (!legacy || typeof legacy !== "object") legacy = migrate();
+    var legacyOwn = read(LEGACY_OWN_KEY);
+    try {
+      // Never overwrite a profile that already holds data: adoption is a
+      // one-time rescue of the pre-profile keys, not a recurring import.
+      var already = read(dataKey(DEFAULT_PROFILE));
+      if (legacy && Object.keys(legacy).length && !(already && Object.keys(already).length)) {
+        localStorage.setItem(dataKey(DEFAULT_PROFILE), JSON.stringify(legacy));
+      }
+      if (legacyOwn && typeof legacyOwn === "object" && Object.keys(legacyOwn).length) {
+        localStorage.setItem(ownKey(DEFAULT_PROFILE), JSON.stringify(legacyOwn));
+      }
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+    } catch (e) {}
+  }
+
+  // Read raw, not through read(): the selected profile is stored as a plain
+  // string, so JSON.parse would throw on it and silently reset the selection
+  // to the first profile on every reload.
+  var current = null;
+  try { current = localStorage.getItem(CURRENT_KEY); } catch (e) {}
+  if (typeof current !== "string" || profiles.indexOf(current) === -1) current = profiles[0];
+
+  var data = read(dataKey(current));
+  if (!data || typeof data !== "object") data = {};
+  var own = read(ownKey(current));
   if (!own || typeof own !== "object") own = {};
+
+  function saveProfiles() {
+    try {
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+      localStorage.setItem(CURRENT_KEY, current);
+    } catch (e) {}
+  }
   function saveOwn() {
-    try { localStorage.setItem(OWN_KEY, JSON.stringify(own)); } catch (e) {}
+    try { localStorage.setItem(ownKey(current), JSON.stringify(own)); } catch (e) {}
   }
 
   var flash = document.getElementById("flash"), flashT;
   function save() {
     try {
-      localStorage.setItem(KEY, JSON.stringify(data));
+      localStorage.setItem(dataKey(current), JSON.stringify(data));
       flash.classList.add("on");
       clearTimeout(flashT);
       flashT = setTimeout(function () { flash.classList.remove("on"); }, 1200);
@@ -343,6 +408,7 @@ TRACK_JS = r'''
   });
 
   document.addEventListener("change", function (e) {
+    if (e.target.id === "profile") { switchProfile(e.target.value); return; }
     var box = e.target.closest(".own input[data-bottle]");
     if (!box) return;
     var id = box.dataset.bottle;
@@ -369,12 +435,12 @@ TRACK_JS = r'''
   });
 
   document.getElementById("export").addEventListener("click", function () {
-    var payload = { app: "52-weeks-behind-the-bar", version: 2,
+    var payload = { app: "52-weeks-behind-the-bar", version: 2, profile: current,
                     saved: new Date().toISOString(), entries: data, bottles: own };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "bar-notes-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.download = "bar-notes-" + current + "-" + new Date().toISOString().slice(0, 10) + ".json";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
   });
@@ -428,10 +494,14 @@ TRACK_JS = r'''
   });
 
   document.getElementById("reset").addEventListener("click", function () {
-    if (!confirm("Erase every mark, rating, note and owned bottle? Download your notes first if you want a copy.")) return;
+    if (!confirm("Erase every mark, rating, note and owned bottle for " + current +
+                 "? Other profiles on this device are not touched. Download your notes first if you want a copy.")) return;
     data = {};
     own = {};
-    try { localStorage.removeItem(KEY); localStorage.removeItem(OWN_KEY); } catch (e) {}
+    try {
+      localStorage.removeItem(dataKey(current));
+      localStorage.removeItem(ownKey(current));
+    } catch (e) {}
     // v1 is left alone on purpose: it is the pre-migration backup.
     fillNotes();
     fillOwn();
@@ -448,6 +518,64 @@ TRACK_JS = r'''
     }
   }
 
+  function renderProfiles() {
+    var sel = document.getElementById("profile");
+    if (!sel) return;
+    sel.innerHTML = "";
+    for (var i = 0; i < profiles.length; i++) {
+      var o = document.createElement("option");
+      o.value = profiles[i];
+      o.textContent = profiles[i];
+      if (profiles[i] === current) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  // Switching re-reads that profile's own keys. Nothing is copied between
+  // profiles, so one person's shelf never leaks into another's.
+  function switchProfile(who) {
+    if (profiles.indexOf(who) === -1) return;
+    current = who;
+    data = read(dataKey(current)) || {};
+    own = read(ownKey(current)) || {};
+    saveProfiles();
+    renderProfiles();
+    fillNotes();
+    fillOwn();
+    render();
+  }
+
+  function addProfile() {
+    var raw = prompt("Initials for the new profile (up to 3 letters, e.g. JRH)");
+    if (raw === null) return;
+    var who = cleanInitials(raw);
+    if (!who) { alert("Initials need at least one letter."); return; }
+    if (profiles.indexOf(who) !== -1) { switchProfile(who); return; }
+    profiles.push(who);
+    saveProfiles();
+    switchProfile(who);
+  }
+
+  // Rename moves the data with the label, so the default YOU profile can be
+  // made yours without starting over.
+  function renameProfile() {
+    var raw = prompt("Rename " + current + " to (up to 3 letters)", current);
+    if (raw === null) return;
+    var who = cleanInitials(raw);
+    if (!who || who === current) return;
+    if (profiles.indexOf(who) !== -1) { alert(who + " already exists on this device."); return; }
+    try {
+      localStorage.setItem(dataKey(who), JSON.stringify(data));
+      localStorage.setItem(ownKey(who), JSON.stringify(own));
+      localStorage.removeItem(dataKey(current));
+      localStorage.removeItem(ownKey(current));
+    } catch (e) {}
+    profiles[profiles.indexOf(current)] = who;
+    current = who;
+    saveProfiles();
+    renderProfiles();
+  }
+
   function fillOwn() {
     var boxes = document.querySelectorAll(".own input[data-bottle]");
     for (var i = 0; i < boxes.length; i++) {
@@ -458,6 +586,11 @@ TRACK_JS = r'''
     }
   }
 
+  document.getElementById("addprofile").addEventListener("click", addProfile);
+  document.getElementById("renameprofile").addEventListener("click", renameProfile);
+
+  saveProfiles();
+  renderProfiles();
   fillNotes();
   fillOwn();
   render();

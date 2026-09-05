@@ -29,7 +29,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 74 tracker checks + 14 link-checker checks
+npm test                  # 92 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -56,7 +56,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
    site. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 74 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 92 jsdom checks plus 14 covering the link checker.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -148,7 +148,7 @@ covered without depending on YouTube being reachable.
 
 ## Tracking data
 
-Stored in `localStorage` under the key `bar52:v2`, shaped as:
+Stored in `localStorage` under the key `bar52:v2:<initials>`, shaped as:
 
 ```json
 { "black-manhattan": { "made": true, "date": "Sep 4, 2026", "rating": 4, "note": "..." } }
@@ -157,7 +157,20 @@ Stored in `localStorage` under the key `bar52:v2`, shaped as:
 Keys are cocktail slugs, so reordering or inserting drinks is safe &mdash; notes stay with
 their cocktail no matter what number it is displayed as.
 
-Owned bottles live separately, under `bar52:bottles:v1`, shaped as
+**Profiles.** Storage is namespaced per set of initials, so several people can share one
+device without overwriting each other: `bar52:v2:JRH` and `bar52:bottles:v1:JRH`, with
+`bar52:profiles` listing them and `bar52:current` remembering the selection. Initials are up
+to three letters. A fresh browser gets a profile called `YOU`, renameable from the picker.
+
+On the first load under this scheme, anything already saved under the un-namespaced
+`bar52:v2` / `bar52:bottles:v1` is **adopted** into that first profile rather than stranded,
+and the old keys are left in place as a backup. Adoption never overwrites a profile that
+already holds data, so it cannot re-run and clobber newer notes.
+
+This is per-device separation, not privacy and not sync: anyone using the device can switch
+profiles and read the notes, and `JRH` on one device is unrelated to `JRH` on another.
+
+Owned bottles live per profile, under `bar52:bottles:v1:<initials>`, shaped as
 `{ "b-campari": true }` where the key is the appendix row's DOM id. It is a separate key
 because it describes the shelf rather than the drinks, and losing one should never take
 the other with it. Export/restore carries it as a `bottles` field; an older export without
