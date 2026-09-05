@@ -7,7 +7,7 @@ import unicodedata
 from urllib.parse import quote_plus
 from data import GROUPS, APPENDIX, WAVES
 from tracker import (TRACK_CSS, dash_html, track_js, track_block,
-                     own_block, TONIGHT_HTML)
+                     own_block, TONIGHT_HTML, chrome_html)
 from ohlq import BASE as OHLQ_BASE, PRODUCTS, CATEGORIES, WAVE_ITEMS
 from ingredients import MAP as ING_MAP, PANTRY
 import supabase
@@ -529,7 +529,8 @@ doc = """<!doctype html>
 <style>%s</style>
 </head>
 <body>
-<div class="wrap">
+%s
+<div class="wrap" id="top">
 
   <header class="mast">
     <h1>Fifty-two weeks<br><em>behind the bar</em></h1>
@@ -573,7 +574,8 @@ doc = """<!doctype html>
 %s
 </body>
 </html>
-""" % (CSS, tally_html, dash_html(TOTAL, supabase.enabled()) + TONIGHT_HTML,
+""" % (CSS, chrome_html(nav, apx_nav, supabase.enabled()),
+       tally_html, dash_html(TOTAL, supabase.enabled()) + TONIGHT_HTML,
        nav, apx_nav, groups_html, apx_sections, waves_html, notes_html,
        track_js(SLUGS, REQS, BOTTLES,
                 supabase.URL if supabase.enabled() else "",

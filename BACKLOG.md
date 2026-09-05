@@ -165,6 +165,8 @@ concatenated notes.
 - **Substitution matrix** — generalise what the Chartreuse entries do by hand: for each specialty
   bottle, what works instead and how the drink shifts.
 - **Year two** — a bench of alternates for drinks that don't land, and 52 more once this is done.
+- **Hide the top bar on scroll down** — it costs ~52px of every phone screen. Showing it again
+  on scroll up is the usual pattern; worth it only if the bar starts feeling intrusive.
 - **Accessibility and Lighthouse pass** — keyboard navigation through the filters and star
   ratings, contrast check on the muted greens, focus order through the tracking controls.
 - ~~**Build on push**~~ — **done.** `.github/workflows/ci.yml` rebuilds on every push and fails

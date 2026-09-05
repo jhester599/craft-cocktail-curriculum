@@ -36,7 +36,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 133 tracker checks + 14 link-checker checks
+npm test                  # 152 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -63,7 +63,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    HTML, editing `data.py` without rebuilding would silently ship a stale site. The check
    covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 133 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 152 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -180,6 +180,26 @@ already holds data, so it cannot re-run and clobber newer notes.
 
 This is per-device separation and not privacy: anyone using the device can switch profiles and
 read the notes.
+
+## Page chrome
+
+A fixed top bar carries the three things you need *while scrolling*: the menu button, the
+current profile's initials, and a sync dot. Everything deliberate and occasional — Add
+someone, Rename, Sync code, Sync now, Download/Restore/Clear — stays in the dashboard.
+The initials earn their place because the costly mistake is writing a note under the wrong
+profile, and once you scroll past the dashboard nothing else tells you who you are. The dot
+is tappable, so a failed sync is actionable without scrolling back up.
+
+**A fixed bar hides anchor targets underneath it.** With 150+ jump links into the buying
+guide plus the contents nav, `scroll-margin-top` is set from `--topbar` on every jump
+target (`.wrap [id]`, `.group`, `.drink`, `.apx`, `.brow`, `.tonight`). Changing the bar's
+height changes both in one place.
+
+The menu opens a left drawer listing every family and appendix section, built from the same
+`GROUPS`/`APPENDIX` lists as the contents nav so the two cannot drift. Hand-rolled: Escape
+closes it, the scrim closes it, choosing a section closes it, focus moves in on open and
+back to the button on close, and `aria-expanded`/`aria-hidden` track the visual state. A
+test asserts every drawer link points at an id that exists.
 
 ## Onboarding
 

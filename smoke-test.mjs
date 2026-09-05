@@ -717,5 +717,61 @@ const v1 = {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Fixed top bar and slide-out sections
+// ---------------------------------------------------------------------------
+{
+  const { window: w } = load();
+  const D = w.document;
+  const drawer = D.getElementById('drawer');
+  const btn = D.getElementById('menubtn');
+
+  ok('there is a fixed top bar', !!D.querySelector('.topbar'));
+  ok('the profile picker lives in the bar', !!D.querySelector('.topbar #profile'));
+  ok('and no longer in the dashboard', !D.querySelector('.dash #profile'));
+  ok('the deliberate, occasional controls stay in the dashboard',
+     !!D.querySelector('.dash #addprofile') && !!D.querySelector('.dash #renameprofile') &&
+     !!D.querySelector('.dash #synccode') && !!D.querySelector('.dash #syncnow'));
+  ok('the bar carries a sync indicator', !!D.querySelector('.topbar #syncdot'));
+
+  // A fixed bar hides anchor targets underneath it unless every jump target
+  // clears it. There are 150+ jump links into the buying guide.
+  const css = html;
+  ok('jump targets clear the bar',
+     /scroll-margin-top:calc\(var\(--topbar\)/.test(css));
+  ok('the page is padded for the bar', /body\{padding-top:var\(--topbar\)\}/.test(css));
+
+  ok('the drawer lists every family and appendix section',
+     drawer.querySelectorAll('nav a[href^="#"]').length >=
+       D.querySelectorAll('.group').length + D.querySelectorAll('.apx').length);
+  ok('the drawer links to the guide',
+     !!drawer.querySelector('a[href="start.html"]'));
+  ok('every drawer target exists on the page',
+     [...drawer.querySelectorAll('a[href^="#"]')]
+       .every(a => !!D.getElementById(a.getAttribute('href').slice(1))));
+
+  ok('the drawer starts closed', !drawer.classList.contains('open'));
+  ok('and says so', btn.getAttribute('aria-expanded') === 'false' &&
+                    drawer.getAttribute('aria-hidden') === 'true');
+
+  btn.click();
+  ok('the menu button opens it', drawer.classList.contains('open'));
+  ok('aria keeps up', btn.getAttribute('aria-expanded') === 'true' &&
+                      drawer.getAttribute('aria-hidden') === 'false');
+  ok('focus moves into the drawer', drawer.contains(D.activeElement));
+
+  D.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  ok('Escape closes it', !drawer.classList.contains('open'));
+  ok('and focus returns to the button', D.activeElement === btn);
+
+  btn.click();
+  D.getElementById('scrim').click();
+  ok('tapping outside closes it', !drawer.classList.contains('open'));
+
+  btn.click();
+  drawer.querySelector('nav a').click();
+  ok('choosing a section closes it', !drawer.classList.contains('open'));
+}
+
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
 process.exit(fail ? 1 : 0);

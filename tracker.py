@@ -7,6 +7,68 @@
 import json
 
 TRACK_CSS = '''
+/* ---- fixed top bar ---- */
+:root{--topbar:52px}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:40;height:var(--topbar);
+  background:rgba(13,18,15,.94);border-bottom:1px solid var(--line);
+  backdrop-filter:saturate(140%) blur(8px);-webkit-backdrop-filter:saturate(140%) blur(8px)}
+.topbar-in{max-width:760px;margin:0 auto;height:100%;padding:0 12px;
+  display:flex;align-items:center;gap:10px}
+.menubtn{flex:none;width:44px;height:44px;display:inline-flex;align-items:center;
+  justify-content:center;background:none;border:0;color:var(--muted);cursor:pointer;padding:0}
+.menubtn:hover,.menubtn:focus-visible{color:var(--chart)}
+.menubtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round}
+.brand{font-family:"Bodoni Moda",Georgia,serif;font-size:15.5px;letter-spacing:.01em;
+  color:var(--bone);text-decoration:none;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+.brand em{font-style:italic;color:var(--chart)}
+.topbar .who-mini{display:flex;align-items:center;gap:6px;flex:none}
+.topbar .who-mini label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);display:none}
+@media (min-width:520px){.topbar .who-mini label{display:inline}}
+.topbar select{font:inherit;font-size:14px;color:var(--bone);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:2px;padding:0 6px;height:36px;
+  font-family:"Bodoni Moda",Georgia,serif;letter-spacing:.05em}
+.topbar select:focus-visible{outline:2px solid var(--chart);outline-offset:2px}
+.syncdot{flex:none;width:36px;height:36px;display:inline-flex;align-items:center;
+  justify-content:center;background:none;border:0;cursor:pointer;padding:0}
+.syncdot i{width:8px;height:8px;border-radius:50%;background:var(--muted);
+  display:block;transition:background .2s}
+.syncdot.busy i{background:var(--brass)}
+.syncdot.good i{background:var(--chart)}
+.syncdot.bad i{background:var(--campari)}
+.syncdot:focus-visible{outline:2px solid var(--chart);outline-offset:2px}
+
+/* The bar floats over the page, so every jump target needs to clear it or the
+   heading you asked for sits hidden underneath. */
+body{padding-top:var(--topbar)}
+.wrap [id],.group,.drink,.apx,.brow,.tonight{scroll-margin-top:calc(var(--topbar) + 12px)}
+
+/* ---- slide-out navigation ---- */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);opacity:0;
+  pointer-events:none;transition:opacity .18s}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;z-index:51;width:min(300px,84vw);
+  background:var(--panel);border-right:1px solid var(--line);
+  transform:translateX(-102%);transition:transform .2s ease;
+  overflow-y:auto;-webkit-overflow-scrolling:touch}
+.drawer.open{transform:translateX(0)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 8px 8px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;
+  background:var(--panel)}
+.drawer-head span{font-family:"Bodoni Moda",Georgia,serif;font-size:16px}
+.drawer-close{width:44px;height:44px;background:none;border:0;color:var(--muted);
+  cursor:pointer;font-size:22px;line-height:1}
+.drawer-close:hover,.drawer-close:focus-visible{color:var(--chart)}
+.drawer nav{padding:10px 0 30px}
+.drawer h4{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  margin:16px 0 4px;padding:0 18px;font-family:Karla,sans-serif;font-weight:700}
+.drawer a{display:block;text-decoration:none;color:var(--bone);font-size:15px;
+  padding:11px 18px;min-height:44px;line-height:22px;border-bottom:1px solid transparent}
+.drawer a:hover,.drawer a:focus-visible{color:var(--chart);background:var(--panel-2)}
+@media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
+
 /* ---- start-here link ---- */
 .starthere{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
   font-size:13.5px;color:var(--muted);min-height:44px;padding:0 4px}
@@ -126,8 +188,6 @@ TRACK_CSS = '''
 _DASH_HTML = '''
   <section class="dash" id="dash">
     <div class="who">
-      <label for="profile">Tracking as</label>
-      <select id="profile" aria-label="Who is tracking"></select>
       <button id="addprofile" type="button">Add someone</button>
       <button id="renameprofile" type="button">Rename</button>
       <a class="starthere" id="starthere" href="start.html">
@@ -162,6 +222,40 @@ _DASH_HTML = '''
     backup; Restore reads it back in and merges it with whatever is already here.</p>
   </section>
 '''
+
+CHROME_HTML = '''<div class="topbar">
+  <div class="topbar-in">
+    <button class="menubtn" id="menubtn" type="button"
+            aria-label="Sections" aria-expanded="false" aria-controls="drawer">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+    </button>
+    <a class="brand" href="#top">Fifty-two weeks <em>behind the bar</em></a>
+    <span class="who-mini">
+      <label for="profile">Tracking as</label>
+      <select id="profile" aria-label="Who is tracking"></select>
+    </span>
+    %(dot)s
+  </div>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Sections" aria-hidden="true">
+  <div class="drawer-head">
+    <span>Sections</span>
+    <button class="drawer-close" id="drawerclose" type="button" aria-label="Close">&times;</button>
+  </div>
+  <nav>
+    <a href="#dash">Progress &amp; what to make</a>
+    <h4>Eleven families</h4>
+    %(nav)s
+    <h4>Buying guide</h4>
+    %(apx)s
+    <h4>Help</h4>
+    <a href="start.html">Start here</a>
+  </nav>
+</aside>'''
+
+SYNC_DOT = ('''<button class="syncdot" id="syncdot" type="button"
+            title="Sync now"><i></i></button>''')
 
 SYNC_HTML = '''<div class="sync" id="sync">
       <button id="syncnow" type="button">Sync now</button>
@@ -617,9 +711,17 @@ TRACK_JS = r'''
 
   function syncStatus(msg, kind) {
     var el = document.getElementById("syncstat");
-    if (!el) return;
-    el.textContent = msg || "";
-    el.className = "syncstat" + (kind ? " " + kind : "");
+    if (el) {
+      el.textContent = msg || "";
+      el.className = "syncstat" + (kind ? " " + kind : "");
+    }
+    // The bar is visible while you scroll, so it carries the state as a dot.
+    // The full sentence stays in the dashboard where there is room for it.
+    var dot = document.getElementById("syncdot");
+    if (dot) {
+      dot.className = "syncdot" + (kind ? " " + kind : (msg ? " busy" : ""));
+      dot.title = msg || (getCode() ? "Sync now" : "Set a sync code to sync");
+    }
   }
 
   function rpc(fn, body) {
@@ -739,6 +841,46 @@ TRACK_JS = r'''
   }
 
   // A first visit has no notes and no code; that is who the guide is for.
+  // Slide-out section list. Hand-rolled, so: Escape closes it, clicking the
+  // scrim closes it, focus moves in on open and back to the button on close,
+  // and aria-expanded/aria-hidden stay in step with the visual state.
+  var drawer = document.getElementById("drawer"),
+      scrim = document.getElementById("scrim"),
+      menubtn = document.getElementById("menubtn");
+
+  function setDrawer(open) {
+    if (!drawer) return;
+    drawer.classList.toggle("open", open);
+    drawer.setAttribute("aria-hidden", open ? "false" : "true");
+    menubtn.setAttribute("aria-expanded", open ? "true" : "false");
+    scrim.hidden = false;
+    scrim.classList.toggle("open", open);
+    if (open) {
+      var first = drawer.querySelector("a, button");
+      if (first) first.focus();
+    } else {
+      menubtn.focus();
+    }
+  }
+
+  if (drawer) {
+    menubtn.addEventListener("click", function () {
+      setDrawer(!drawer.classList.contains("open"));
+    });
+    document.getElementById("drawerclose").addEventListener("click", function () {
+      setDrawer(false);
+    });
+    scrim.addEventListener("click", function () { setDrawer(false); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && drawer.classList.contains("open")) setDrawer(false);
+    });
+    // Picking a section is the end of the interaction; leaving it open would
+    // cover the thing you just navigated to.
+    drawer.addEventListener("click", function (e) {
+      if (e.target.closest("a")) setDrawer(false);
+    });
+  }
+
   function renderStartHere() {
     var link = document.getElementById("starthere");
     if (!link) return;
@@ -818,6 +960,8 @@ TRACK_JS = r'''
 
   if (SUPA_URL) {
     document.getElementById("syncnow").addEventListener("click", function () { syncNow(); });
+    var dot = document.getElementById("syncdot");
+    if (dot) dot.addEventListener("click", function () { syncNow(); });
     document.getElementById("synccode").addEventListener("click", manageCode);
   }
   document.getElementById("addprofile").addEventListener("click", addProfile);
@@ -847,6 +991,12 @@ def track_js(slugs, reqs, bottles, supa_url="", supa_key="", code_len=26):
             .replace("__SUPA_URL__", json.dumps(supa_url))
             .replace("__SUPA_KEY__", json.dumps(supa_key))
             .replace("__CODE_LEN__", json.dumps(int(code_len))))
+
+
+def chrome_html(nav, apx_nav, sync=True):
+    """The fixed top bar and the slide-out section list."""
+    return CHROME_HTML % {"nav": nav, "apx": apx_nav,
+                          "dot": SYNC_DOT if sync else ""}
 
 
 def own_block(bottle_id):
