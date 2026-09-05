@@ -80,7 +80,7 @@ footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--line);
   <div class="card">
     <h3>Initials are a label, not a password</h3>
     <p>Anyone holding this device can switch to your initials and read your notes.
-    It keeps two people from overwriting each other; it does not keep secrets.</p>
+    It keeps people sharing a device from overwriting each other; it does not keep secrets.</p>
   </div>
 %(sync)s
   <h2><span class="n">%(n_shelf)s</span>Tell it what you own</h2>
@@ -144,8 +144,8 @@ SYNC_SECTIONS = """
     <p>Only share it with your own devices. And do not write anything in a note
     that you would mind a friend reading.</p>
   </div>
-  <p class="muted">Each set of initials has its own code, so two people sharing a
-  laptop sync to two different places.</p>
+  <p class="muted">Each set of initials has its own code, so several people sharing a
+  laptop sync to separate places.</p>
 """
 
 SYNC_TROUBLE = """    <li><strong>It says sync failed.</strong> Your notes on this device are

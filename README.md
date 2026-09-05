@@ -276,8 +276,7 @@ the same order before merging. Restore merges rather than overwrites.
 
 ## Known next steps
 
-- Shared state between two people needs a backend (Supabase free tier, or GitHub Issues
-  via the API). `localStorage` is per-browser.
+- Merge review before a sync lands, so a restore cannot surprise you with concatenated notes.
 - Separate profiles per bartender.
 - Moving cocktail data to JSON so the page can fetch it and edits skip the rebuild.
 - Print stylesheet; service worker for offline use.

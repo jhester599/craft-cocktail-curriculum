@@ -533,7 +533,7 @@ doc = """<!doctype html>
 
   <header class="mast">
     <h1>Fifty-two weeks<br><em>behind the bar</em></h1>
-    <p class="sub">A year of lesser-known classics, modern craft drinks and regional oddities for two people who have already made every Old Fashioned, Margarita and Manhattan they need to. Grouped by family so each week builds on the last. Ingredients in each recipe link straight to the buying guide, and every bottle there carries an Ohio Liquor stock check and a photo of the label. Measurements are given in both ounces and millilitres, and only two drinks call for Chartreuse — both with substitutes written into the build.</p>
+    <p class="sub">A year of lesser-known classics, modern craft drinks and regional oddities for anyone who has already made every Old Fashioned, Margarita and Manhattan they need to. Work through it alone, with a partner, or with a group of friends — everyone keeps their own progress, ratings and notes. Grouped by family so each week builds on the last. Ingredients in each recipe link straight to the buying guide, and every bottle there carries an Ohio Liquor stock check and a photo of the label. Measurements are given in both ounces and millilitres, and only two drinks call for Chartreuse — both with substitutes written into the build.</p>
     <ul class="tally">%s</ul>
   </header>
 

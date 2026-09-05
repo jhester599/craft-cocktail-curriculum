@@ -202,7 +202,7 @@ GROUPS = [
                 "ing": ["2 oz gin", "½ oz lemon juice", "½ oz lime juice", "¾ oz simple syrup", "1 egg white", "1 oz heavy cream", "2–3 dashes orange flower water", "soda to top"],
                 "method": "Dry-shake hard, shake with ice, strain into a chilled fizz glass, then top with soda to lift the head.",
                 "video": "https://www.youtube.com/watch?v=rMRf3858Yrg", "channel": "The Educated Barfly",
-                "note": "Henry Ramos, New Orleans, 1888. The endurance event of home bartending — split the shaking between the two of you.",
+                "note": "Henry Ramos, New Orleans, 1888. The endurance event of home bartending — pass the tin round and share the shaking.",
             },
             {
                 "n": 25, "name": "Gin Basil Smash", "family": "Modern gin", "spirit": "Gin",
@@ -356,7 +356,7 @@ GROUPS = [
     {
         "id": "apple",
         "title": "Apple Brandy, Revivers & Punch",
-        "intro": "Autumnal and communal. An apple-brandy sour, a spirit-forward reviver, and one large-format punch for when the two of you have company.",
+        "intro": "Autumnal and communal. An apple-brandy sour, a spirit-forward reviver, and one large-format punch for when there is a crowd.",
         "cocktails": [
             {
                 "n": 0, "name": "Jack Rose", "family": "Apple brandy sour", "spirit": "Apple brandy",
@@ -412,7 +412,7 @@ GROUPS = [
                 "ing": ["2 oz vodka", "4 oz tomato juice", "½ oz fresh lemon juice", "2 dashes Worcestershire", "2 dashes hot sauce", "pinch horseradish, salt, pepper, celery salt"],
                 "method": "Roll between tins rather than shaking; highball over ice; celery and whatever else you like.",
                 "video": "https://www.youtube.com/watch?v=eNXtrKFYI2Y", "channel": "The Educated Barfly",
-                "note": "The great savoury cocktail and an open canvas for a house spice blend the two of you can argue about all year.",
+                "note": "The great savoury cocktail and an open canvas for a house spice blend everyone can argue about all year.",
             },
             {
                 "n": 50, "name": "Cosmopolitan", "family": "Modern classic", "spirit": "Vodka",

@@ -98,8 +98,8 @@ practical payoff, and it makes the "phone on the counter" use case reliable.
 ## P2 — Worth doing once the above settles
 
 ### 9. Two profiles
-Separate tracks so you each keep your own ratings and notes, with a toggle in the dashboard and
-a combined view. Cheap version of the shared-state problem below.
+Separate tracks so everyone keeps their own ratings and notes, with a toggle in the dashboard
+and a combined view. Cheap version of the shared-state problem below.
 
 ### 9b. Keep the Supabase project awake
 **Done.** `.github/workflows/keepalive.yml` runs `keepalive.py` every three days, well inside the
@@ -176,6 +176,7 @@ concatenated notes.
 
 - **A framework.** The page is one file with no dependencies and loads instantly. React or a
   static site generator would add a toolchain for no gain at this size.
-- **User accounts.** Two people. A shared key or an exported file covers it.
+- **User accounts.** A handful of friends, not a service. Initials plus a sync code covers it;
+  see item 10 for what that does and does not protect.
 - **Auto-scraping recipe specs.** Specs legitimately vary between sources; the value here is in
   a human having chosen one and noted where it's contested.

@@ -559,7 +559,7 @@ TRACK_JS = r'''
 
   // ---- sync ---------------------------------------------------------------
   // The code is the identity AND the password: it names a row nobody can
-  // enumerate. Kept per profile so two people on one device sync separately.
+  // enumerate. Kept per profile so several people on one device sync separately.
   function codeKey(who) { return "bar52:code:" + who; }
   function getCode() {
     try { return localStorage.getItem(codeKey(current)); } catch (e) { return null; }
