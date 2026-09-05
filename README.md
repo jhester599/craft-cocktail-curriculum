@@ -16,6 +16,8 @@ no dependencies. Host it on GitHub Pages as-is.
 | `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
 | `ingredients.py` | **Ingredient → bottle map.** The ordered keyword table behind both the in-recipe jump links and the "what can I make tonight?" requirements. Order matters; see the module docstring. |
+| `supabase.py` | **Sync config.** Project URL and publishable key. Both are public by design; leave `URL` empty to build with sync off. |
+| `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
 
 ## Build
@@ -29,7 +31,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 92 tracker checks + 14 link-checker checks
+npm test                  # 108 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -56,7 +58,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
    site. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 92 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 108 jsdom checks plus 14 covering the link checker.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -167,8 +169,42 @@ On the first load under this scheme, anything already saved under the un-namespa
 and the old keys are left in place as a backup. Adoption never overwrites a profile that
 already holds data, so it cannot re-run and clobber newer notes.
 
-This is per-device separation, not privacy and not sync: anyone using the device can switch
-profiles and read the notes, and `JRH` on one device is unrelated to `JRH` on another.
+This is per-device separation and not privacy: anyone using the device can switch profiles and
+read the notes.
+
+## Cross-device sync
+
+Each profile can hold a **sync code** — 26 random characters, generated in the browser, stored
+at `bar52:code:<initials>`. Enter the same code on another device and both see the same notes.
+The code is the identity *and* the password: it names a row that cannot be enumerated.
+
+`docs/index.html` talks to Supabase with plain `fetch` against two RPC endpoints. No SDK, no
+toolchain — the page is still one self-contained file; what it gains is a *service* dependency,
+not a library one.
+
+**Local-first.** `localStorage` stays authoritative. A sync pulls the remote payload, merges it
+into what is already here, writes that locally, then pushes the merged result. Merging is a
+union — made and rated are OR'd, ratings take the max, and notes edited on both devices are
+kept and joined rather than one silently winning. If the network is down, the project is
+paused, or the call fails for any reason, local data is untouched and the page says so; nothing
+is lost, the sync just has not happened yet.
+
+Sync runs on load when a code is present, four seconds after any change, and on the **Sync now**
+button.
+
+**The security model** is in `schema.sql`, and it matters because the page is public: the
+publishable key ships inside `docs/index.html` where anyone can read it. So `anon` holds no
+privileges on the table at all. Row-level security alone would not be enough — a policy cannot
+see the client's `WHERE` clause, so any select grant would let someone list every row and
+harvest every code. Access goes through `SECURITY DEFINER` functions instead, and knowing a
+code is the only way in.
+
+What this is not: a code is a bearer token. Anyone holding one can read and write that
+person's notes. Convenience-grade, not secret-grade.
+
+**Setup:** run `schema.sql` in the Supabase SQL editor, put the project URL and publishable key
+in `supabase.py`, rebuild. Note that a free-tier project **pauses after 7 days without database
+activity** — see BACKLOG 9b for the scheduled keep-alive that prevents it.
 
 Owned bottles live per profile, under `bar52:bottles:v1:<initials>`, shaped as
 `{ "b-campari": true }` where the key is the appendix row's DOM id. It is a separate key

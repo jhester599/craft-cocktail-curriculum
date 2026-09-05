@@ -121,12 +121,20 @@ Supabase Pro at $25/month per project, which removes the pause entirely.
 ---
 
 ### 10. Genuinely shared state
-The real fix for two people on two devices. Options, roughly in order of effort:
-- **Supabase free tier** — a real table, anonymous auth or a shared key. Most capable.
-- **A GitHub Gist via the API** — no new service, but needs a token in the browser, so only
-  acceptable for a private repo or a scoped token.
-- **Commit the export JSON to the repo** — zero infrastructure, manual, works today.
-Worth deciding deliberately; each adds a dependency the current file doesn't have.
+**Done, via Supabase.** Each profile can hold a 26-character sync code; entering it on another
+device gives that device the same notes. The page talks to two `SECURITY DEFINER` RPC functions
+with plain `fetch` — no SDK, so the file stays self-contained.
+
+Local-first: `localStorage` remains authoritative, and a sync pulls, merges, writes locally,
+then pushes. The merge is a union rather than last-write-wins, so two devices that both logged a
+drink keep both, and a note edited on each keeps both texts. A failed sync leaves local data
+untouched.
+
+The key ships in the public page, so `anon` has no table privileges at all — RLS alone would let
+anyone list the table and harvest codes. See `schema.sql`.
+
+Still open here: a code is a bearer token, so it is convenience-grade rather than secret-grade;
+and there is no merge review before a sync lands (item 14).
 
 ### 11. Ingredient search
 "Show everything that uses Campari" or "everything I can make with what's open." Complements

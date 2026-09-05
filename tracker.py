@@ -7,6 +7,15 @@
 import json
 
 TRACK_CSS = '''
+/* ---- cross-device sync ---- */
+.sync{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.sync button{font:inherit;font-size:13.5px;color:var(--muted);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:2px;padding:0 12px;min-height:44px;cursor:pointer}
+.sync button:hover,.sync button:focus-visible{color:var(--chart);border-color:var(--chart)}
+.syncstat{font-size:13px;color:var(--muted)}
+.syncstat.bad{color:var(--campari)}
+.syncstat.good{color:var(--chart)}
+
 /* ---- who is tracking ---- */
 .who{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
 .who label{font-size:12px;letter-spacing:.02em;color:var(--muted);text-transform:uppercase}
@@ -112,6 +121,7 @@ _DASH_HTML = '''
       <button id="addprofile" type="button">Add someone</button>
       <button id="renameprofile" type="button">Rename</button>
     </div>
+    %(sync)s
     <div class="dash-top">
       <span class="dash-count"><b id="pcount">0</b> of %(total)d made</span>
       <span class="dash-sub" id="pnote">Nothing logged yet</span>
@@ -139,6 +149,12 @@ _DASH_HTML = '''
   </section>
 '''
 
+SYNC_HTML = '''<div class="sync" id="sync">
+      <button id="syncnow" type="button">Sync now</button>
+      <button id="synccode" type="button">Sync code</button>
+      <span class="syncstat" id="syncstat"></span>
+    </div>'''
+
 TRACK_JS = r'''
 <script>
 (function () {
@@ -157,6 +173,12 @@ TRACK_JS = r'''
   var LEGACY_OWN_KEY = "bar52:bottles:v1";
   var OLD_KEY = "bar52:v1";
   var DEFAULT_PROFILE = "YOU";
+
+  // Cross-device sync. Empty URL means the page was built without a Supabase
+  // project, in which case none of this runs and the controls are absent.
+  var SUPA_URL = __SUPA_URL__;
+  var SUPA_KEY = __SUPA_KEY__;
+  var CODE_LEN = __CODE_LEN__;
 
   function dataKey(who) { return "bar52:v2:" + who; }
   function ownKey(who) { return "bar52:bottles:v1:" + who; }
@@ -251,6 +273,7 @@ TRACK_JS = r'''
       flash.classList.add("on");
     }
     render();
+    scheduleSync();
   }
   function rec(id) { return data[id] || (data[id] = {}); }
 
@@ -417,6 +440,7 @@ TRACK_JS = r'''
     if (row) row.classList.toggle("have", !!box.checked);
     saveOwn();
     renderTonight();
+    scheduleSync();
   });
 
   var noteT;
@@ -518,6 +542,144 @@ TRACK_JS = r'''
     }
   }
 
+  // ---- sync ---------------------------------------------------------------
+  // The code is the identity AND the password: it names a row nobody can
+  // enumerate. Kept per profile so two people on one device sync separately.
+  function codeKey(who) { return "bar52:code:" + who; }
+  function getCode() {
+    try { return localStorage.getItem(codeKey(current)); } catch (e) { return null; }
+  }
+  function setCode(c) {
+    try {
+      if (c) localStorage.setItem(codeKey(current), c);
+      else localStorage.removeItem(codeKey(current));
+    } catch (e) {}
+  }
+
+  function newCode() {
+    // No I, L, O, U, 0 or 1: these get read aloud and typed on another device.
+    var alpha = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
+    var out = "";
+    try {
+      var a = new Uint32Array(CODE_LEN);
+      (window.crypto || window.msCrypto).getRandomValues(a);
+      for (var i = 0; i < CODE_LEN; i++) out += alpha.charAt(a[i] % alpha.length);
+    } catch (e) {
+      for (var j = 0; j < CODE_LEN; j++) {
+        out += alpha.charAt(Math.floor(Math.random() * alpha.length));
+      }
+    }
+    return out;
+  }
+
+  function syncStatus(msg, kind) {
+    var el = document.getElementById("syncstat");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "syncstat" + (kind ? " " + kind : "");
+  }
+
+  function rpc(fn, body) {
+    return fetch(SUPA_URL + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: {
+        "apikey": SUPA_KEY,
+        "Authorization": "Bearer " + SUPA_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  // Union rather than last-write-wins: two devices that both logged a drink
+  // should end up with both, and a note edited on each should keep both texts
+  // rather than silently dropping one.
+  function mergeEntries(a, b) {
+    var out = {}, id;
+    for (id in a) if (Object.prototype.hasOwnProperty.call(a, id)) out[id] = a[id];
+    for (id in b) {
+      if (!Object.prototype.hasOwnProperty.call(b, id)) continue;
+      var x = out[id] || {}, y = b[id] || {};
+      var notes = [x.note, y.note]
+        .filter(function (n) { return n && n.trim(); })
+        .filter(function (n, i, arr) { return arr.indexOf(n) === i; });
+      out[id] = {
+        made: !!(x.made || y.made),
+        date: x.date || y.date,
+        rating: Math.max(x.rating || 0, y.rating || 0) || undefined,
+        note: notes.join("\n\n") || undefined
+      };
+    }
+    return out;
+  }
+
+  function mergeOwn(a, b) {
+    var out = {}, k;
+    for (k in a) if (a[k]) out[k] = true;
+    for (k in b) if (b[k]) out[k] = true;
+    return out;
+  }
+
+  var syncing = false, syncT;
+
+  function syncNow(quiet) {
+    if (!SUPA_URL) return;
+    var code = getCode();
+    if (!code) {
+      if (!quiet) syncStatus("No sync code yet on this device.", "bad");
+      return;
+    }
+    if (syncing) return;
+    syncing = true;
+    syncStatus("Syncing\u2026");
+    return rpc("pull", { p_code: code }).then(function (remote) {
+      if (!remote || typeof remote !== "object") remote = {};
+      data = mergeEntries(remote.entries || {}, data);
+      own = mergeOwn(remote.bottles || {}, own);
+      try { localStorage.setItem(dataKey(current), JSON.stringify(data)); } catch (e) {}
+      saveOwn();
+      fillNotes();
+      fillOwn();
+      render();
+      return rpc("push", {
+        p_code: code,
+        p_payload: { version: 2, profile: current, entries: data, bottles: own }
+      });
+    }).then(function () {
+      syncStatus("Synced " + new Date().toLocaleTimeString(), "good");
+    }).catch(function (e) {
+      // Local data is untouched by a failure, so this is a notice, not a loss.
+      syncStatus("Sync failed (" + e.message + ") \u2014 your notes are safe here.", "bad");
+    }).then(function () { syncing = false; });
+  }
+
+  function scheduleSync() {
+    if (!SUPA_URL || !getCode()) return;
+    clearTimeout(syncT);
+    syncT = setTimeout(function () { syncNow(true); }, 4000);
+  }
+
+  function manageCode() {
+    var code = getCode();
+    var msg = code
+      ? "Sync code for " + current + ":\n\n" + code +
+        "\n\nEnter this on another device to see the same notes there.\n" +
+        "Replacing it with a different code joins that one instead."
+      : "No sync code for " + current + " yet.\n\n" +
+        "Leave this empty and press OK to create one, or paste a code from " +
+        "another device to join it.";
+    var raw = prompt(msg, code || "");
+    if (raw === null) return;
+    var v = String(raw).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    if (!v) v = newCode();
+    if (v.length < 20) { alert("A sync code needs at least 20 characters."); return; }
+    setCode(v);
+    syncNow();
+  }
+
   function renderProfiles() {
     var sel = document.getElementById("profile");
     if (!sel) return;
@@ -543,6 +705,8 @@ TRACK_JS = r'''
     fillNotes();
     fillOwn();
     render();
+    syncStatus(getCode() ? "" : "");
+    if (getCode()) syncNow(true);
   }
 
   function addProfile() {
@@ -586,6 +750,10 @@ TRACK_JS = r'''
     }
   }
 
+  if (SUPA_URL) {
+    document.getElementById("syncnow").addEventListener("click", function () { syncNow(); });
+    document.getElementById("synccode").addEventListener("click", manageCode);
+  }
   document.getElementById("addprofile").addEventListener("click", addProfile);
   document.getElementById("renameprofile").addEventListener("click", renameProfile);
 
@@ -594,21 +762,25 @@ TRACK_JS = r'''
   fillNotes();
   fillOwn();
   render();
+  if (SUPA_URL && getCode()) syncNow(true);
 })();
 </script>
 '''
 
-def dash_html(total):
+def dash_html(total, sync=True):
     """Dashboard markup. Totals come from the build, not a hardcoded 52."""
-    return _DASH_HTML % {"total": total}
+    return _DASH_HTML % {"total": total, "sync": SYNC_HTML if sync else ""}
 
 
-def track_js(slugs, reqs, bottles):
+def track_js(slugs, reqs, bottles, supa_url="", supa_key="", code_len=26):
     """The storage JS with the build's slugs, requirements and bottles baked in."""
     return (TRACK_JS
             .replace("__SLUGS__", json.dumps(list(slugs)))
             .replace("__REQS__", json.dumps(reqs, sort_keys=True))
-            .replace("__BOTTLES__", json.dumps(bottles, sort_keys=True, ensure_ascii=False)))
+            .replace("__BOTTLES__", json.dumps(bottles, sort_keys=True, ensure_ascii=False))
+            .replace("__SUPA_URL__", json.dumps(supa_url))
+            .replace("__SUPA_KEY__", json.dumps(supa_key))
+            .replace("__CODE_LEN__", json.dumps(int(code_len))))
 
 
 def own_block(bottle_id):

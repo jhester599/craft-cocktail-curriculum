@@ -10,6 +10,7 @@ from tracker import (TRACK_CSS, dash_html, track_js, track_block,
                      own_block, TONIGHT_HTML)
 from ohlq import BASE as OHLQ_BASE, PRODUCTS, CATEGORIES, WAVE_ITEMS
 from ingredients import MAP as ING_MAP, PANTRY
+import supabase
 
 
 # ---------------------------------------------------------------------------
@@ -570,8 +571,12 @@ doc = """<!doctype html>
 %s
 </body>
 </html>
-""" % (CSS, tally_html, dash_html(TOTAL) + TONIGHT_HTML, nav, apx_nav, groups_html,
-       apx_sections, waves_html, notes_html, track_js(SLUGS, REQS, BOTTLES))
+""" % (CSS, tally_html, dash_html(TOTAL, supabase.enabled()) + TONIGHT_HTML,
+       nav, apx_nav, groups_html, apx_sections, waves_html, notes_html,
+       track_js(SLUGS, REQS, BOTTLES,
+                supabase.URL if supabase.enabled() else "",
+                supabase.PUBLISHABLE_KEY if supabase.enabled() else "",
+                supabase.CODE_LENGTH))
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "index.html")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -591,3 +596,4 @@ print("ohlq links: %d product, %d category, %d search fallback"
          sum(h in _cat_urls for h in _hrefs),
          sum("site%3Aohlq.com" in h for h in _hrefs)))
 print("slugs:", len(SLUGS), "unique:", len(set(SLUGS)))
+print("sync:", "on (%s)" % supabase.URL if supabase.enabled() else "off")

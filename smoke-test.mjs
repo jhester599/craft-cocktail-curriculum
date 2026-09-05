@@ -304,6 +304,10 @@ const v1 = {
     w.Blob = class { constructor(parts) { captured = parts.join(''); } };
     w.URL.createObjectURL = () => 'blob:x';
     w.URL.revokeObjectURL = () => {};
+    // The download anchor's click would make jsdom attempt a real navigation,
+    // which it cannot do and reports as a stack trace long after the assertion
+    // has passed. Silence it so a genuine failure is not buried in noise.
+    w.HTMLAnchorElement.prototype.click = function () {};
     w.document.getElementById('export').click();
     const payload = JSON.parse(captured);
     ok('export carries owned bottles', payload.bottles && payload.bottles['b-campari'] === true);
@@ -461,8 +465,130 @@ const v1 = {
     w.Blob = class { constructor(parts) { captured = parts.join(''); } };
     w.URL.createObjectURL = () => 'blob:x';
     w.URL.revokeObjectURL = () => {};
+    // The download anchor's click would make jsdom attempt a real navigation,
+    // which it cannot do and reports as a stack trace long after the assertion
+    // has passed. Silence it so a genuine failure is not buried in noise.
+    w.HTMLAnchorElement.prototype.click = function () {};
     w.document.getElementById('export').click();
     ok('export names its profile', JSON.parse(captured).profile === 'JRH');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-device sync (Supabase RPC, mocked - the real endpoint is not a test
+// dependency and is unreachable from some environments anyway)
+// ---------------------------------------------------------------------------
+{
+  const CODE = 'ABCDEFGHJKMNPQRSTVWXYZ2345';
+  const settle = () => new Promise(r => setTimeout(r, 0));
+
+  // Load with fetch stubbed. `remote` is what pull() returns; every call made
+  // is recorded so we can assert on what actually went over the wire.
+  function loadSync(seed, remote, opts = {}) {
+    const calls = [];
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously',
+      url: 'https://example.com/',
+      beforeParse(window) {
+        for (const [k, v] of Object.entries(seed || {})) {
+          window.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+        }
+        window.fetch = (url, init) => {
+          const fn = String(url).split('/rpc/')[1];
+          const body = JSON.parse(init.body);
+          calls.push({ fn, body, headers: init.headers });
+          if (opts.fail) return Promise.resolve({ ok: false, status: 500 });
+          return Promise.resolve({
+            ok: true, status: 200,
+            json: () => Promise.resolve(fn === 'pull' ? (remote || {}) : '2026-09-05T00:00:00Z'),
+          });
+        };
+      },
+    });
+    return { window: dom.window, calls };
+  }
+
+  ok('sync controls are rendered when configured',
+     !!d.getElementById('syncnow') && !!d.getElementById('synccode'));
+
+  // No code: nothing should go over the wire.
+  {
+    const { window: w, calls } = loadSync({}, {});
+    w.document.getElementById('syncnow').click();
+    await settle();
+    ok('no sync code means no network call', calls.length === 0);
+    ok('and the page says so', /No sync code/.test(w.document.getElementById('syncstat').textContent));
+  }
+
+  // With a code, a sync pulls then pushes.
+  {
+    const { window: w, calls } = loadSync(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': CODE },
+      { entries: {}, bottles: {} });
+    await settle(); await settle();
+    ok('a stored code syncs on load', calls.length >= 1 && calls[0].fn === 'pull');
+    ok('pull sends the code', calls[0].body.p_code === CODE);
+    ok('the key is sent as apikey and bearer',
+       calls[0].headers.apikey.startsWith('sb_publishable_') &&
+       calls[0].headers.Authorization === 'Bearer ' + calls[0].headers.apikey);
+    const push = calls.find(c => c.fn === 'push');
+    ok('push follows pull', !!push);
+    ok('push names the profile', push.body.p_payload.profile === 'JRH');
+  }
+
+  // The merge is a union, not last-write-wins.
+  {
+    const { window: w, calls } = loadSync(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': CODE,
+        'bar52:v2:JRH': { 'last-word': { made: true, note: 'mine' } },
+        'bar52:bottles:v1:JRH': { 'b-campari': true } },
+      { entries: { 'jungle-bird': { made: true, note: 'theirs' } },
+        bottles: { 'b-suze': true } });
+    await settle(); await settle();
+    const local = JSON.parse(w.localStorage.getItem('bar52:v2:JRH') || '{}');
+    ok('remote-only drinks arrive', !!local['jungle-bird']);
+    ok('local-only drinks survive', !!local['last-word']);
+    const shelf = JSON.parse(w.localStorage.getItem('bar52:bottles:v1:JRH') || '{}');
+    ok('shelves are unioned', shelf['b-campari'] === true && shelf['b-suze'] === true);
+    ok('the merged state is what gets pushed',
+       !!calls.find(c => c.fn === 'push' && c.body.p_payload.entries['jungle-bird']
+                                         && c.body.p_payload.entries['last-word']));
+  }
+
+  // Both sides edited the same note: keep both rather than drop one.
+  {
+    const { window: w } = loadSync(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': CODE,
+        'bar52:v2:JRH': { 'last-word': { made: true, note: 'too sweet' } } },
+      { entries: { 'last-word': { made: true, note: 'more lime' } } });
+    await settle(); await settle();
+    const note = JSON.parse(w.localStorage.getItem('bar52:v2:JRH'))['last-word'].note;
+    ok('conflicting notes are kept, not dropped',
+       note.includes('too sweet') && note.includes('more lime'));
+  }
+
+  // A failed sync must never damage what is on the device.
+  {
+    const { window: w } = loadSync(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': CODE,
+        'bar52:v2:JRH': { 'last-word': { made: true, note: 'mine' } } },
+      {}, { fail: true });
+    await settle(); await settle();
+    ok('a failed sync leaves local data intact',
+       JSON.parse(w.localStorage.getItem('bar52:v2:JRH'))['last-word'].note === 'mine');
+    ok('and says so without claiming loss',
+       /Sync failed/.test(w.document.getElementById('syncstat').textContent) &&
+       /safe/.test(w.document.getElementById('syncstat').textContent));
+  }
+
+  // Codes are per profile: one person's code must not sync another's notes.
+  {
+    const { window: w, calls } = loadSync(
+      { 'bar52:profiles': ['JRH', 'ABC'], 'bar52:current': 'ABC',
+        'bar52:code:JRH': CODE },
+      {});
+    await settle();
+    ok('a profile without a code does not sync', calls.length === 0);
   }
 }
 
