@@ -455,6 +455,15 @@ TRACK_JS = r'''
   }
   function rec(id) { return data[id] || (data[id] = {}); }
 
+  // Every local edit is stamped. Without it the merge cannot tell a newer note
+  // from an older one, and "keep both" is the only safe answer - which is what
+  // turned a note being typed into four copies of itself.
+  function touch(id) {
+    var r = rec(id);
+    r.at = Date.now();
+    return r;
+  }
+
   function today() {
     var d = new Date();
     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -583,7 +592,7 @@ TRACK_JS = r'''
   document.addEventListener("click", function (e) {
     var mk = e.target.closest(".mk");
     if (mk) {
-      var r = rec(mk.dataset.id);
+      var r = touch(mk.dataset.id);
       r.made = !r.made;
       if (r.made && !r.date) r.date = today();
       if (!r.made) delete r.date;
@@ -592,7 +601,7 @@ TRACK_JS = r'''
     }
     var st = e.target.closest(".stars button");
     if (st) {
-      var rr = rec(st.dataset.id), v = parseInt(st.dataset.v, 10);
+      var rr = touch(st.dataset.id), v = parseInt(st.dataset.v, 10);
       rr.rating = rr.rating === v ? 0 : v;
       if (rr.rating && !rr.made) { rr.made = true; rr.date = rr.date || today(); }
       save();
@@ -622,6 +631,11 @@ TRACK_JS = r'''
     scheduleSync();
   });
 
+  // Finishing with a note is the natural moment to send it.
+  document.addEventListener("focusout", function (e) {
+    if (e.target.classList && e.target.classList.contains("note")) scheduleSync();
+  });
+
   var noteT;
   document.addEventListener("input", function (e) {
     if (!e.target.classList.contains("note")) return;
@@ -630,7 +644,7 @@ TRACK_JS = r'''
     el.style.height = el.scrollHeight + "px";
     clearTimeout(noteT);
     noteT = setTimeout(function () {
-      var r = rec(el.dataset.id);
+      var r = touch(el.dataset.id);
       r.note = el.value;
       if (!r.note) delete r.note;
       save();
@@ -790,17 +804,41 @@ TRACK_JS = r'''
     for (id in b) {
       if (!Object.prototype.hasOwnProperty.call(b, id)) continue;
       var x = out[id] || {}, y = b[id] || {};
-      var notes = [x.note, y.note]
-        .filter(function (n) { return n && n.trim(); })
-        .filter(function (n, i, arr) { return arr.indexOf(n) === i; });
       out[id] = {
         made: !!(x.made || y.made),
         date: x.date || y.date,
         rating: Math.max(x.rating || 0, y.rating || 0) || undefined,
-        note: notes.join("\n\n") || undefined
+        note: pickNote(x, y),
+        at: Math.max(x.at || 0, y.at || 0) || undefined
       };
     }
     return out;
+  }
+
+  // Joining two notes is right when two devices genuinely wrote different
+  // things, and wrong every other time. A device syncing against its own last
+  // push sees a stale prefix of what is being typed right now; joining those
+  // produced a note containing every keystroke pause. And "keep the longer one"
+  // cannot stand alone either, or deleting text would resurrect it from the
+  // server. So: whoever wrote last wins, and joining is the last resort.
+  function pickNote(x, y) {
+    var xn = (x.note || "").trim(), yn = (y.note || "").trim();
+    if (!xn) return y.note;
+    if (!yn) return x.note;
+    if (xn === yn) return x.note;
+
+    // An edit stamped by this version always beats one that is not, which is
+    // how a note corrupted before this fix gets cleaned up rather than
+    // reasserting itself on the next sync.
+    var xa = x.at || 0, ya = y.at || 0;
+    if (xa !== ya) return xa > ya ? x.note : y.note;
+
+    // Same instant, or neither stamped: one being a prefix of the other means
+    // it is an earlier draft, not a second opinion.
+    if (xn.indexOf(yn) === 0 || yn.indexOf(xn) === 0) {
+      return xn.length >= yn.length ? x.note : y.note;
+    }
+    return [x.note, y.note].join("\n\n");
   }
 
   function mergeOwn(a, b) {
@@ -880,7 +918,17 @@ TRACK_JS = r'''
   function scheduleSync() {
     if (!SUPA_URL || !getCode()) return;
     clearTimeout(syncT);
-    syncT = setTimeout(function () { syncNow(true); }, 4000);
+    syncT = setTimeout(function () {
+      // Never sync while a note is being typed. Even with the merge fixed,
+      // pulling a half-finished sentence back over itself is pointless work
+      // and the last place to want a surprise. The blur handler picks it up.
+      var el = document.activeElement;
+      if (el && el.classList && el.classList.contains("note")) {
+        scheduleSync();
+        return;
+      }
+      syncNow(true);
+    }, 4000);
   }
 
   // Groups of four to read off one screen and type into another. The groups

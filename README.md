@@ -29,7 +29,7 @@ are not built at all; everything else works exactly the same, offline included.
 | `admin.sql` | Who is using it and how much. Run in the Supabase SQL editor, never from the page. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
-| `smoke-test.mjs` | 190 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
+| `smoke-test.mjs` | 196 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
 | `check-videos.test.mjs` | 14 checks on the link checker, against a mocked endpoint. |
 | `keepalive.test.py` | 12 checks on the keep-alive, against a stubbed network. |
 
@@ -45,7 +45,7 @@ slugs.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 190 tracker checks + 14 link-checker checks
+npm test                  # 196 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -73,7 +73,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    with the offending diff if anything under `docs/` differs from a fresh build; the check
    covers the whole directory, so `start.html` and `synccheck.html` cannot drift either. Fix
    it by running `python3 build.py` and committing the result.
-4. `npm test` — the 190 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 196 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -279,9 +279,20 @@ toolchain — the page is still one self-contained file; what it gains is a *ser
 not a library one.
 
 **Local-first.** `localStorage` stays authoritative. A sync pulls the remote payload, merges it
-into what is already here, writes that locally, then pushes the merged result. Merging is a
-union — made and rated are OR'd, ratings take the max, and notes edited on both devices are
-kept and joined rather than one silently winning. If the network is down, the project is
+into what is already here, writes that locally, then pushes the merged result. Made and rated
+are OR'd and ratings take the max.
+
+**Notes need more care than a union.** Joining two notes is right when two devices genuinely
+wrote different things, and wrong every other time — a device syncing against its own last push
+sees a stale prefix of what is being typed *right now*, and joining those turns a sentence into
+one copy per typing pause. "Keep the longer one" cannot stand alone either, or deleting text
+would resurrect it from the server. So every local edit is stamped (`at`), the newer note wins,
+a note that is a prefix of the other is treated as an earlier draft, and joining is the last
+resort. An edit stamped by the current version always beats an unstamped one, which is how a
+note corrupted before this existed gets cleaned up rather than reasserting itself.
+
+Sync is also deferred while a note has focus, and runs on blur instead: pulling a half-finished
+sentence back over itself is pointless work in the last place anyone wants a surprise. If the network is down, the project is
 paused, or the call fails for any reason, local data is untouched and the page says so; nothing
 is lost, the sync just has not happened yet.
 

@@ -1026,5 +1026,86 @@ const v1 = {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Typing a note must not merge it with its own earlier draft
+// ---------------------------------------------------------------------------
+{
+  const settle = () => new Promise(r => setTimeout(r, 0));
+  const CODE = 'K7MP2XQR9TVB';
+
+  // `remote` is what the server holds; the device pulls it mid-edit.
+  function typing(localEntry, remoteEntry) {
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) {
+        w.localStorage.setItem('bar52:profiles', JSON.stringify(['JRH']));
+        w.localStorage.setItem('bar52:current', 'JRH');
+        w.localStorage.setItem('bar52:code:JRH', CODE);
+        w.localStorage.setItem('bar52:v2:JRH', JSON.stringify({ 'vieux-carre': localEntry }));
+        w.prompt = () => null;
+        w.fetch = (url) => Promise.resolve({
+          ok: true, status: 200,
+          json: () => Promise.resolve(String(url).endsWith('pull')
+            ? { version: 2, profile: 'JRH', entries: { 'vieux-carre': remoteEntry }, bottles: {} }
+            : 't'),
+        });
+      },
+    });
+    return dom.window;
+  }
+  const noteOf = w =>
+    (JSON.parse(w.localStorage.getItem('bar52:v2:JRH') || '{}')['vieux-carre'] || {}).note || '';
+
+  // The reported bug: the server holds a prefix of what is now typed.
+  {
+    const w = typing(
+      { made: true, note: "slightly heavier on rye (jefferson's), only had Angostura bitters.", at: 2000 },
+      { made: true, note: "slightly heavier on rye (jefferson's)", at: 1000 });
+    await settle(); await settle();
+    ok('a note is not merged with its own earlier draft',
+       noteOf(w) === "slightly heavier on rye (jefferson's), only had Angostura bitters.");
+    ok('and does not gain a second copy', noteOf(w).split('\n\n').length === 1);
+  }
+
+  // Deleting text must stick, not be undone by the longer copy on the server.
+  {
+    const w = typing({ made: true, note: 'short version', at: 3000 },
+                     { made: true, note: 'a much longer earlier note that was cut down', at: 1000 });
+    await settle(); await settle();
+    ok('a deliberate shortening is not reverted by the server copy',
+       noteOf(w) === 'short version');
+  }
+
+  // A note corrupted before the fix has no timestamp; the repaired one does.
+  {
+    const w = typing(
+      { made: true, note: 'clean rewrite', at: 5000 },
+      { made: true, note: 'clean rewrite\n\nclean rewri\n\nclean' });
+    await settle(); await settle();
+    ok('a repaired note beats an unstamped corrupted one', noteOf(w) === 'clean rewrite');
+  }
+
+  // Two devices that genuinely wrote different things still keep both.
+  {
+    const w = typing({ made: true, note: 'from the laptop', at: 1000 },
+                     { made: true, note: 'from the phone', at: 1000 });
+    await settle(); await settle();
+    ok('genuinely different notes are still both kept',
+       /from the laptop/.test(noteOf(w)) && /from the phone/.test(noteOf(w)));
+  }
+
+  // And an edit stamps itself, so the next merge can order it.
+  {
+    const w = typing({ made: true, note: 'x' }, { made: true, note: 'x' });
+    await settle();
+    const box = w.document.querySelector('.note[data-id="vieux-carre"]');
+    box.value = 'edited by hand';
+    box.dispatchEvent(new w.Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 600));
+    const entry = JSON.parse(w.localStorage.getItem('bar52:v2:JRH'))['vieux-carre'];
+    ok('typing stamps the entry with a time', typeof entry.at === 'number' && entry.at > 0);
+  }
+}
+
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
 process.exit(fail ? 1 : 0);
