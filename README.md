@@ -26,6 +26,7 @@ are not built at all; everything else works exactly the same, offline included.
 | `start.py` | Generates `docs/start.html`, the "Start here" guide, linked from the dashboard and the drawer. |
 | `keepalive.py` | Pings Supabase so the free-tier project does not pause. Standard library only. |
 | `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
+| `admin.sql` | Who is using it and how much. Run in the Supabase SQL editor, never from the page. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
 | `smoke-test.mjs` | 190 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
@@ -314,6 +315,19 @@ It writes one throwaway row under a random code, names that code so you can dele
 touches a real profile. The check that matters most is the last: a direct read of the `shelves`
 table must be **refused**. If it returns rows, `anon` has a grant it should not and anyone with
 the key could enumerate every sync code.
+
+**Seeing who is using it.** `admin.sql` summarises the `shelves` table: initials, drinks made,
+notes written, bottles owned, last sync. Run it in the Supabase SQL editor.
+
+Deliberately *not* a page on the site. Anything `docs/` can do, anyone can do — the publishable
+key is right there in the HTML — so a summary endpoint reachable with that key would expose
+every tester's activity to whoever found it. The dashboard is already an authenticated
+privileged interface; adding a second one with weaker gating would be the project's first real
+privacy hazard, in exchange for a question that gets asked about once a month.
+
+Note what it cannot show: a profile with no sync code never reaches the table at all. Someone
+can use the site for a year and leave no trace, because their data lives in their browser and
+only sync sends it anywhere. It is "who set up sync and how active they are", not attendance.
 
 **Keeping it awake.** A free-tier project pauses after 7 days without database activity, and a
 paused project refuses syncs until it is restored. `.github/workflows/keepalive.yml` runs
