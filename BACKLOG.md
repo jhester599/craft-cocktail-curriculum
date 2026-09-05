@@ -102,21 +102,23 @@ Separate tracks so you each keep your own ratings and notes, with a toggle in th
 a combined view. Cheap version of the shared-state problem below.
 
 ### 9b. Keep the Supabase project awake
-Supabase pauses a free-tier project after **7 days without database activity**, and a paused
-project accepts no reads or writes until it is restored (about 30 seconds to wake). A page used
-a few evenings a month would hit that pause almost every time, so the first sync after a quiet
-week would fail or stall.
+**Done.** `.github/workflows/keepalive.yml` runs `keepalive.py` every three days, well inside the
+7-day pause window, and on demand. A ping that cannot get through opens a `supabase`-labelled
+issue rather than failing silently — a silent failure would mean the project pauses anyway and
+nobody notices until a sync fails on someone's phone. The issue closes itself when the ping
+succeeds again.
 
-Fix it with a scheduled GitHub Action that pings the database often enough to count as activity
-— a cheap `rpc/ping` call every few days, on the pattern already established by
-`.github/workflows/video-links.yml`. Needs the project URL and anon key as repository secrets so
-they are not in the workflow file. Worth adding a failure path: if the ping errors, open an issue
-rather than failing silently, since a silent failure here means the pause happens anyway.
+The retries are the wake mechanism: a paused project takes about 30 seconds to come back and the
+waking request may itself time out. Four attempts, but never on a 4xx, which will not fix itself.
+`keepalive.test.py` covers all of that against a stubbed network, including the
+wakes-on-third-attempt case, and runs in CI.
 
-Alternatives if the ping proves flaky: an external uptime monitor hitting the same endpoint, or
-Supabase Pro at $25/month per project, which removes the pause entirely.
+Config comes from `supabase.py` rather than repository secrets, deviating from what this item
+originally said: both values are already public in the page, so secrets would have added setup
+steps and a second copy to keep in sync for no security gain.
 
-*Depends on:* item 10 landing first — there is nothing to keep awake until then.
+Remaining risk: GitHub disables scheduled workflows in repositories inactive for 60 days. If this
+repo goes quiet that long, the schedule stops and the project pauses regardless.
 
 ---
 

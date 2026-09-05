@@ -50,3 +50,8 @@ jobs:
 
       - name: Run the tracker smoke test
         run: npm test
+
+      # No network: the checks stub urlopen. This covers the retry-wakes-a-
+      # sleeping-project path, which the scheduled run itself cannot assert on.
+      - name: Check the Supabase keep-alive
+        run: python3 keepalive.test.py

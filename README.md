@@ -18,6 +18,7 @@ no dependencies. Host it on GitHub Pages as-is.
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
 | `ingredients.py` | **Ingredient → bottle map.** The ordered keyword table behind both the in-recipe jump links and the "what can I make tonight?" requirements. Order matters; see the module docstring. |
 | `supabase.py` | **Sync config.** Project URL and publishable key. Both are public by design; leave `URL` empty to build with sync off. |
+| `keepalive.py` | Pings Supabase so the free-tier project does not pause. Standard library only. |
 | `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
@@ -61,6 +62,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
 4. `npm test` — the 108 jsdom checks plus 14 covering the link checker.
+5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -217,9 +219,26 @@ touches a real profile. The check that matters most is the last: a direct read o
 table must be **refused**. If it returns rows, `anon` has a grant it should not and anyone with
 the key could enumerate every sync code.
 
+**Keeping it awake.** A free-tier project pauses after 7 days without database activity, and a
+paused project refuses syncs until it is restored. `.github/workflows/keepalive.yml` runs
+`keepalive.py` every three days to prevent that, and opens a `supabase`-labelled issue if the
+ping cannot get through — a silent failure would mean the project pauses anyway and nobody finds
+out until a sync fails on someone's phone.
+
+The retry in that script is the mechanism, not politeness: a paused project takes about 30
+seconds to wake, and the request that wakes it may itself time out. It retries four times, but
+never retries a 4xx, which will not fix itself.
+
+Config comes from `supabase.py`, not repository secrets. Both values are already public — they
+ship inside `docs/index.html`, which is exactly why `schema.sql` gives `anon` no table
+privileges — so secrets would add setup steps and a second place to keep in sync for no gain.
+
+One catch: **GitHub disables scheduled workflows in repositories with no activity for 60 days.**
+If the repo goes quiet that long, re-enable it from the Actions tab or the project will pause
+regardless.
+
 **Setup:** run `schema.sql` in the Supabase SQL editor, put the project URL and publishable key
-in `supabase.py`, rebuild. Note that a free-tier project **pauses after 7 days without database
-activity** — see BACKLOG 9b for the scheduled keep-alive that prevents it.
+in `supabase.py`, rebuild.
 
 Owned bottles live per profile, under `bar52:bottles:v1:<initials>`, shaped as
 `{ "b-campari": true }` where the key is the appendix row's DOM id. It is a separate key
