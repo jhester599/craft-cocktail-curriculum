@@ -577,7 +577,7 @@ APPENDIX = [
         "title": "Whiskey",
         "blurb": "Bonded rye does most of the work here. Buy the 100-proof bottles — the drinks are built for them.",
         "rows": [
-            ("Rye, 100 proof", "Rittenhouse Rye Bottled-in-Bond", ["Wild Turkey 101 Rye", "Old Forester Rye"], "Final Ward, Black Manhattan, Toronto, Old Pal, À La Louisiane."),
+            ("Rye, 100 proof", "Rittenhouse Rye Bottled-in-Bond", ["Wild Turkey 101 Rye", "Old Forester Rye"], "Black Manhattan, Toronto, Old Pal, À La Louisiane, Red Hook, Vieux Carré, Saratoga, and the rye half of the Boulevardier and Trinidad Sour."),
             ("Bourbon", "Old Forester 100 Proof", ["Wild Turkey 101", "Elijah Craig Small Batch"], "Paper Plane, Gold Rush, Benton's, Boulevardier."),
             ("Blended Scotch", "Monkey Shoulder", ["Compass Box Great King Street", "The Famous Grouse"], "Penicillin base."),
             ("Islay single malt", "Laphroaig 10", ["Ardbeg 10", "Lagavulin 16"], "Penicillin float. Lagavulin is the original spec but expensive to pour a quarter ounce of."),
@@ -589,7 +589,7 @@ APPENDIX = [
         "blurb": "One good cognac covers five drinks. The bonded apple brandy covers two more.",
         "rows": [
             ("Cognac", "Pierre Ferrand 1840 Original Formula", ["Hine H by Hine", "Rémy Martin VSOP", "Camus VSOP"], "Built specifically for cocktails — Ferrand 1840 is the bartender's default."),
-            ("Apple brandy / Calvados", "Laird's Straight Apple Brandy Bottled-in-Bond", ["Christian Drouin Sélection", "Busnel VSOP"], "Widow's Kiss, Corpse Reviver No. 1. Note that Laird's Applejack is a different, blended product."),
+            ("Apple brandy / Calvados", "Laird's Straight Apple Brandy Bottled-in-Bond", ["Christian Drouin Sélection", "Busnel VSOP"], "Jack Rose, Corpse Reviver No. 1. Note that Laird's Applejack is a different, blended product."),
             ("Pisco", "Campo de Encanto", ["Macchu Pisco", "BarSol", "Caravedo"], "Pisco Sour."),
         ],
     },
