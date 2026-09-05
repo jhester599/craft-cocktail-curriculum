@@ -1,8 +1,12 @@
 # 52 Weeks Behind the Bar
 
 A single-page cocktail curriculum: 52 drinks in 11 flavour families, with progress
-tracking, notes, OHLQ availability links and shelf photos. Static — no backend,
-no dependencies. Host it on GitHub Pages as-is.
+tracking, notes, OHLQ availability links and shelf photos. One self-contained HTML file
+with no runtime libraries and no build toolchain — host it on GitHub Pages as-is.
+
+Cross-device sync is optional and talks to Supabase with plain `fetch`, so the page gains a
+*service* dependency but still no library. Blank `URL` in `supabase.py` and the sync controls
+are not built at all; everything else works exactly the same, offline included.
 
 **Live:** <https://jhester599.github.io/craft-cocktail-curriculum/>
 
@@ -14,16 +18,19 @@ no dependencies. Host it on GitHub Pages as-is.
 | `docs/synccheck.html` | Generated sync diagnostic. Only built when `supabase.py` is configured. |
 | `docs/start.html` | Generated onboarding guide. Its sync sections disappear when sync is off. |
 | `data.py` | **Content source.** All 52 cocktails (ingredients, method, video, note) and the whole bottle appendix. Edit here to change recipes or brands. |
-| `tracker.py` | The progress/notes UI — CSS, dashboard markup, and the localStorage JavaScript. |
-| `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
+| `tracker.py` | Everything interactive: the top bar and drawer, profiles, the progress dashboard, the "what can I make tonight?" panel, and the storage and sync JavaScript. |
+| `build.py` | Renders the pages from all of the above. Owns the page CSS, metric conversion, ingredient resolution, link generation and the build assertions. |
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
 | `ingredients.py` | **Ingredient → bottle map.** The ordered keyword table behind both the in-recipe jump links and the "what can I make tonight?" requirements. Order matters; see the module docstring. |
 | `supabase.py` | **Sync config.** Project URL and publishable key. Both are public by design; leave `URL` empty to build with sync off. |
-| `start.py` | Generates `docs/start.html`, the "Start here" guide linked from the profile row. |
+| `start.py` | Generates `docs/start.html`, the "Start here" guide, linked from the dashboard and the drawer. |
 | `keepalive.py` | Pings Supabase so the free-tier project does not pause. Standard library only. |
 | `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
+| `smoke-test.mjs` | 165 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
+| `check-videos.test.mjs` | 14 checks on the link checker, against a mocked endpoint. |
+| `keepalive.test.py` | 12 checks on the keep-alive, against a stubbed network. |
 
 ## Build
 
@@ -31,8 +38,9 @@ no dependencies. Host it on GitHub Pages as-is.
 python3 build.py          # or: npm run build
 ```
 
-No Python packages required. Writes `docs/index.html` and prints a count of cocktails and
-bottle links.
+No Python packages required. Writes `docs/index.html`, plus `docs/start.html` and
+`docs/synccheck.html`, and prints counts for cocktails, bottle links, OHLQ link tiers and
+slugs.
 
 ```bash
 npm install               # jsdom, for the test only
@@ -60,9 +68,10 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
 1. `npm ci` — installs jsdom, the only dev dependency.
 2. `python3 build.py` — regenerates the page.
 3. **Staleness gate** — `git diff --quiet -- docs/`. Because Pages serves the *committed*
-   HTML, editing `data.py` without rebuilding would silently ship a stale site. The check
-   covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
-   fresh build. Fix it by running `python3 build.py` and committing the result.
+   HTML, editing `data.py` without rebuilding would silently ship a stale site. The job fails
+   with the offending diff if anything under `docs/` differs from a fresh build; the check
+   covers the whole directory, so `start.html` and `synccheck.html` cannot drift either. Fix
+   it by running `python3 build.py` and committing the result.
 4. `npm test` — the 165 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
@@ -123,7 +132,7 @@ covered without depending on YouTube being reachable.
 - **OHLQ links** are real ohlq.com URLs, held in `ohlq.py` and applied by `ohlq_url()`
   in three tiers: an exact `PRODUCTS` page for a bottle if one is known, else the
   `CATEGORIES` browse page for its appendix item, else the original
-  `site:ohlq.com` Google search. Currently 14 product links and 139 category links,
+  `site:ohlq.com` Google search. Currently 16 product links and 137 category links,
   with no bottle left on the search fallback.
 
   **33 distinct URLs were opened by hand on 2026-09-04 and every one resolved**, which
@@ -181,11 +190,34 @@ already holds data, so it cannot re-run and clobber newer notes.
 This is per-device separation and not privacy: anyone using the device can switch profiles and
 read the notes.
 
+**Owned bottles** live per profile under `bar52:bottles:v1:<initials>`, shaped as
+`{ "b-campari": true }` where the key is the appendix row's DOM id. Separate from the notes
+because it describes the shelf rather than the drinks, and losing one should never take the
+other with it.
+
+**Export/Restore.** Download wraps everything as
+`{app, version, profile, saved, entries, bottles}` and names the file after the profile, so a
+restore cannot land blind. Restore *merges* rather than overwrites: made and rated are OR'd,
+ratings take the max, and notes are joined. An older export with no `bottles` field leaves the
+shelf untouched rather than clearing it, and a v1 file with numeric keys is mapped through the
+build order before merging.
+
+**Migration from `bar52:v1`.** v1 keyed entries off the sequential drink number. On first load
+the tracker reads v1, maps each numeric key through the current build order (`SLUGS[n-1]`), and
+writes the result to v2. It runs only when v2 is absent, so it happens exactly once.
+**`bar52:v1` is deliberately left in place** as a pre-migration backup and is not touched by
+"Clear everything". Keys that are not numbers in range (already-slug keys, anything
+unrecognised) are carried across unchanged rather than dropped.
+
+Because the mapping depends on build order, migrate *before* reordering `GROUPS` &mdash; the
+only way to read positional keys is against the order that wrote them.
+
 ## Page chrome
 
 A fixed top bar carries the three things you need *while scrolling*: the menu button, the
-current profile's initials, and a sync dot. Everything deliberate and occasional — Add
-someone, Rename, Sync code, Sync now, Download/Restore/Clear — stays in the dashboard.
+current profile's initials, and a sync dot. Everything deliberate and occasional stays in the
+dashboard: Add someone, Rename, My sync code, Link a device, Sync now, and
+Download/Restore/Clear.
 The initials earn their place because the costly mistake is writing a note under the wrong
 profile, and once you scroll past the dashboard nothing else tells you who you are. The dot
 is tappable, so a failed sync is actionable without scrolling back up.
@@ -204,8 +236,9 @@ test asserts every drawer link points at an id that exists.
 ## Onboarding
 
 `docs/start.html` explains the tracking model to someone who has just been sent the link:
-initials are a label rather than a login, and a sync code is a long string you type into a
-second device. Neither is guessable from looking at the page. It is linked as **Start here**
+initials are a label rather than a login, and a sync code is twelve characters you read off
+one device and type into another. Neither is guessable from looking at the page, and the
+guide is explicit about which of the two sync buttons belongs on which device. It is linked as **Start here**
 next to the profile picker, emphasised until the visitor has notes or a sync code and quiet
 afterwards.
 
@@ -290,29 +323,11 @@ regardless.
 **Setup:** run `schema.sql` in the Supabase SQL editor, put the project URL and publishable key
 in `supabase.py`, rebuild.
 
-Owned bottles live per profile, under `bar52:bottles:v1:<initials>`, shaped as
-`{ "b-campari": true }` where the key is the appendix row's DOM id. It is a separate key
-because it describes the shelf rather than the drinks, and losing one should never take
-the other with it. Export/restore carries it as a `bottles` field; an older export without
-that field leaves the shelf untouched rather than clearing it.
-
-**Migration from `bar52:v1`.** v1 keyed entries off the sequential drink number. On first
-load the tracker reads v1, maps each numeric key through the current build order
-(`SLUGS[n-1]`), and writes the result to v2. It runs only when v2 is absent, so it happens
-exactly once. **`bar52:v1` is deliberately left in place** as a pre-migration backup and is
-not touched by "Clear everything". Keys that are not numbers in range (already-slug keys,
-anything unrecognised) are carried across unchanged rather than dropped.
-
-Because the mapping depends on build order, migrate *before* reordering `GROUPS` &mdash; the
-only way to read positional keys is against the order that wrote them.
-
-Export/Restore round-trips this object wrapped in `{app, version, saved, entries}`, now at
-`version: 2`. Restore accepts either shape: a v1 file with numeric keys is mapped through
-the same order before merging. Restore merges rather than overwrites.
-
 ## Known next steps
 
+See `BACKLOG.md` for the full list. The nearest items:
+
 - Merge review before a sync lands, so a restore cannot surprise you with concatenated notes.
-- Separate profiles per bartender.
+- Shopping list generator — the inverse of "what can I make tonight?", using the same data.
 - Moving cocktail data to JSON so the page can fetch it and edits skip the rebuild.
 - Print stylesheet; service worker for offline use.
