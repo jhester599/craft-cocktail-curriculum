@@ -28,7 +28,7 @@ are not built at all; everything else works exactly the same, offline included.
 | `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
-| `smoke-test.mjs` | 178 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
+| `smoke-test.mjs` | 190 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
 | `check-videos.test.mjs` | 14 checks on the link checker, against a mocked endpoint. |
 | `keepalive.test.py` | 12 checks on the keep-alive, against a stubbed network. |
 
@@ -44,7 +44,7 @@ slugs.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 178 tracker checks + 14 link-checker checks
+npm test                  # 190 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -72,7 +72,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    with the offending diff if anything under `docs/` differs from a fresh build; the check
    covers the whole directory, so `start.html` and `synccheck.html` cannot drift either. Fix
    it by running `python3 build.py` and committing the result.
-4. `npm test` — the 178 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 190 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -285,7 +285,12 @@ paused, or the call fails for any reason, local data is untouched and the page s
 is lost, the sync just has not happened yet.
 
 Sync runs on load when a code is present, four seconds after any change, and on the **Sync now**
-button.
+button. That makes it a continuous backup as well as a sync: a device can be lost or replaced
+without losing anything, *provided the code survives*. The code is the only way back — nothing
+can look one up, by design — so `My sync code` shows it in a panel with a Copy button and says
+plainly to keep it somewhere else. It is shown in the page rather than an `alert()` because an
+alert's text cannot be selected on some phones, which left people reading twelve characters off
+one screen and typing them into another.
 
 **The security model** is in `schema.sql`, and it matters because the page is public: the
 publishable key ships inside `docs/index.html` where anyone can read it. So `anon` holds no

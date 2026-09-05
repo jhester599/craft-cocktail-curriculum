@@ -7,6 +7,28 @@
 import json
 
 TRACK_CSS = '''
+/* ---- sync code panel ---- */
+.codepanel{background:var(--panel);border:1px solid var(--line);
+  border-left:2px solid var(--chart);padding:18px;margin:0 0 16px}
+.codepanel h4{font-family:"Bodoni Moda",Georgia,serif;font-weight:500;font-size:18px;
+  margin:0 0 4px}
+.codepanel p{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.codepanel p.warn{color:var(--brass)}
+/* Selectable on purpose: this is the one string people must get off the device,
+   and an alert() cannot be copied from at all on some phones. */
+.codeval{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:clamp(20px,6.5vw,26px);letter-spacing:.08em;color:var(--chart);
+  background:var(--ink);border:1px dashed var(--line);border-radius:2px;
+  padding:14px 12px;text-align:center;margin:0 0 12px;
+  user-select:all;-webkit-user-select:all;word-break:break-all}
+.codebtns{display:flex;flex-wrap:wrap;gap:8px}
+.codebtns button{font:inherit;font-size:14px;min-height:44px;padding:0 15px;cursor:pointer;
+  border-radius:2px;border:1px solid var(--line);background:var(--panel-2);color:var(--bone)}
+.codebtns button.primary{background:var(--chart);border-color:var(--chart);color:var(--ink);
+  font-weight:700}
+.codebtns button:hover,.codebtns button:focus-visible{border-color:var(--chart)}
+.codebtns button.primary:hover{opacity:.9}
+
 /* ---- fixed top bar ---- */
 :root{--topbar:52px}
 .topbar{position:fixed;top:0;left:0;right:0;z-index:40;height:var(--topbar);
@@ -212,6 +234,7 @@ _DASH_HTML = '''
       <button data-filter="top" aria-pressed="false">Rated 4+</button>
       <button data-filter="noted" aria-pressed="false">Has notes</button>
     </div>
+    %(codepanel)s
     <div class="tools">
       <button id="export">Download my notes</button>
       <label for="importfile">Restore from file</label>
@@ -260,6 +283,20 @@ CHROME_HTML = '''<div class="topbar">
 
 SYNC_DOT = ('''<button class="syncdot" id="syncdot" type="button"
             title="Sync now"><i></i></button>''')
+
+CODE_PANEL_HTML = '''<div class="codepanel" id="codepanel" hidden>
+      <h4>Sync code for <span id="codewho"></span></h4>
+      <p id="codehint"></p>
+      <code class="codeval" id="codeval"></code>
+      <div class="codebtns">
+        <button type="button" class="primary" id="codecopy">Copy</button>
+        <button type="button" id="codeshorten" hidden>Get a shorter code</button>
+        <button type="button" id="codedone">Done</button>
+      </div>
+      <p class="warn" id="codewarn">Keep this somewhere other than this device.
+      If you lose it, there is no way back to these notes &mdash; nothing can look
+      up a code.</p>
+    </div>'''
 
 SYNC_HTML = '''<div class="sync" id="sync">
       <button id="synccode" type="button">My sync code</button>
@@ -859,31 +896,62 @@ TRACK_JS = r'''
   // "Sync code" created a new code when you left the box empty, so pressing it
   // on a second device minted a second code instead of joining the first - two
   // devices, two codes, nothing to sync, and no hint that was what happened.
+  // Shown in the page rather than an alert(): an alert's text cannot be copied
+  // on some phones, which left people reading twelve characters off one screen
+  // and typing them into another.
   function showMyCode() {
+    var panel = document.getElementById("codepanel");
+    if (!panel) return;
     var code = getCode(), fresh = false;
-    // Codes issued before the length was cut are still valid, just tedious to
-    // type. Offer a short one rather than leaving people copying 26 characters.
-    if (code && code.length > CODE_LEN) {
-      if (confirm(
-            "This code is " + code.length + " characters, from an earlier version " +
-            "of the site.\n\nReplace it with a shorter " + CODE_LEN +
-            "-character one?\n\nYour notes are kept. Any other device already " +
-            "linked will need \"Link a device\" again with the new code.")) {
-        code = newCode();
-        setCode(code);
-        fresh = true;
-      }
-    }
     if (!code) { code = newCode(); setCode(code); fresh = true; }
-    alert(
-      (fresh ? "Here is the sync code for " + current + ".\n\n"
-             : "Sync code for " + current + ".\n\n") +
-      formatCode(code) +
-      "\n\nOn your OTHER device, open this site, press \"Link a device\" and " +
-      "type this in. Dashes and capitals do not matter."
-    );
-    syncStatus("Code ready \u2014 type it into your other device", "good");
+
+    document.getElementById("codewho").textContent = current;
+    document.getElementById("codeval").textContent = formatCode(code);
+    document.getElementById("codehint").textContent = fresh
+      ? "New code. On your other device, press \u201cLink a device\u201d and enter this."
+      : "On your other device, press \u201cLink a device\u201d and enter this. "
+        + "Dashes and capitals do not matter.";
+    // Codes issued before the length was cut still work; they are just tedious.
+    document.getElementById("codeshorten").hidden = code.length <= CODE_LEN;
+    panel.hidden = false;
+    document.getElementById("codecopy").focus();
     if (fresh) syncNow(true);
+  }
+
+  function copyCode() {
+    var el = document.getElementById("codeval");
+    var btn = document.getElementById("codecopy");
+    var text = normalise(el.textContent);
+    function done(okay) {
+      btn.textContent = okay ? "Copied" : "Select it and copy";
+      setTimeout(function () { btn.textContent = "Copy"; }, 2000);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); },
+                                                 function () { done(false); });
+        return;
+      }
+    } catch (e) {}
+    // No clipboard API, or permission refused: select it so a long-press or
+    // Ctrl-C still works rather than leaving the button doing nothing.
+    try {
+      var r = document.createRange();
+      r.selectNodeContents(el);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+      done(!!document.execCommand && document.execCommand("copy"));
+    } catch (e) { done(false); }
+  }
+
+  function shortenCode() {
+    if (!confirm("Replace your code with a shorter " + CODE_LEN + "-character one?\n\n" +
+                 "Your notes are kept. Any other device already linked will need " +
+                 "\u201cLink a device\u201d again with the new code.")) return;
+    setCode(newCode());
+    showMyCode();
+    syncNow(true);
   }
 
   function linkDevice() {
@@ -1039,6 +1107,12 @@ TRACK_JS = r'''
     var dot = document.getElementById("syncdot");
     if (dot) dot.addEventListener("click", function () { syncNow(); });
     document.getElementById("synccode").addEventListener("click", showMyCode);
+    document.getElementById("codecopy").addEventListener("click", copyCode);
+    document.getElementById("codeshorten").addEventListener("click", shortenCode);
+    document.getElementById("codedone").addEventListener("click", function () {
+      document.getElementById("codepanel").hidden = true;
+      document.getElementById("synccode").focus();
+    });
     document.getElementById("synclink").addEventListener("click", linkDevice);
   }
   document.getElementById("addprofile").addEventListener("click", addProfile);
@@ -1056,7 +1130,9 @@ TRACK_JS = r'''
 
 def dash_html(total, sync=True):
     """Dashboard markup. Totals come from the build, not a hardcoded 52."""
-    return _DASH_HTML % {"total": total, "sync": SYNC_HTML if sync else ""}
+    return _DASH_HTML % {"total": total,
+                         "sync": SYNC_HTML if sync else "",
+                         "codepanel": CODE_PANEL_HTML if sync else ""}
 
 
 def track_js(slugs, reqs, bottles, supa_url="", supa_key="", code_len=26):

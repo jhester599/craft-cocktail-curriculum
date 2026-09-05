@@ -820,9 +820,17 @@ const v1 = {
   const code = one.w.localStorage.getItem('bar52:code:YOU');
 
   ok('the code is short enough to type', code.length === 12);
-  ok('it is shown in groups of four', /[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(one.alerted()));
+  ok('it is shown in a panel, not an alert',
+     one.w.document.getElementById('codepanel').hidden === false && one.alerted() === null);
+  ok('shown in groups of four',
+     /[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(
+       one.w.document.getElementById('codeval').textContent));
+  ok('the code is selectable rather than trapped in a dialog',
+     /user-select:all/.test(html));
   ok('and it tells you which button to press on the other device',
-     /Link a device/.test(one.alerted()) && /OTHER device/.test(one.alerted()));
+     /Link a device/.test(one.w.document.getElementById('codehint').textContent));
+  ok('it warns that the code is the only way back',
+     /no way back/.test(one.w.document.getElementById('codewarn').textContent));
   ok('device one uploaded its notes', !!server[code] && !!server[code].entries['last-word']);
 
   // Device two: types the code in with the formatting and wrong case a person
@@ -926,16 +934,25 @@ const v1 = {
       { entries: {}, bottles: {} });
     w.document.getElementById('synccode').click();
     await settle();
+    ok('an over-long code offers a shorter one',
+       w.document.getElementById('codeshorten').hidden === false);
+    w.document.getElementById('codeshorten').click();
+    await settle();
     const now = w.localStorage.getItem('bar52:code:JRH');
     ok('an over-long code is replaced when you accept', now.length === 12);
     ok('and the new one is shown in groups of four',
-       /[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(alerted()));
+       /[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(
+         w.document.getElementById('codeval').textContent));
+    ok('the offer goes away once taken',
+       w.document.getElementById('codeshorten').hidden === true);
   }
   {
     const { w } = dev(
       { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': OLD26 },
       { entries: {}, bottles: {} }, { confirm: false });
     w.document.getElementById('synccode').click();
+    await settle();
+    w.document.getElementById('codeshorten').click();
     await settle();
     ok('declining keeps the old code working',
        w.localStorage.getItem('bar52:code:JRH') === OLD26);
@@ -948,6 +965,64 @@ const v1 = {
     await settle();
     ok('a code already at the right length is left alone',
        w.localStorage.getItem('bar52:code:JRH') === CODE12);
+    ok('and is not offered a replacement',
+       w.document.getElementById('codeshorten').hidden === true);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Copying the sync code, which is the one string that must leave the device
+// ---------------------------------------------------------------------------
+{
+  const settle = () => new Promise(r => setTimeout(r, 0));
+  const seed = { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH',
+                 'bar52:code:JRH': 'K7MP2XQR9TVB' };
+
+  function panelDev(clipboard) {
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) {
+        for (const [k, v] of Object.entries(seed)) w.localStorage.setItem(k, JSON.stringify(v).replace(/^"|"$/g, ''));
+        w.localStorage.setItem('bar52:profiles', JSON.stringify(['JRH']));
+        w.prompt = () => null;
+        w.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+        if (clipboard) w.navigator.clipboard = clipboard;
+      },
+    });
+    return dom.window;
+  }
+
+  {
+    let copied = null;
+    const w = panelDev({ writeText: t => { copied = t; return Promise.resolve(); } });
+    w.document.getElementById('synccode').click();
+    w.document.getElementById('codecopy').click();
+    await settle();
+    ok('the copy button copies the code', copied === 'K7MP2XQR9TVB');
+    ok('it copies without the display dashes', !/-/.test(copied));
+    ok('and confirms it did', w.document.getElementById('codecopy').textContent === 'Copied');
+  }
+
+  // A refused clipboard permission must not leave a button that does nothing.
+  {
+    const w = panelDev({ writeText: () => Promise.reject(new Error('denied')) });
+    w.document.getElementById('synccode').click();
+    w.document.getElementById('codecopy').click();
+    await settle();
+    ok('a refused clipboard tells you to copy it yourself',
+       /Select it/.test(w.document.getElementById('codecopy').textContent));
+  }
+
+  // Older browsers have no clipboard API at all.
+  {
+    const w = panelDev(null);
+    w.document.getElementById('synccode').click();
+    ok('no clipboard API does not break the panel',
+       w.document.getElementById('codepanel').hidden === false);
+    w.document.getElementById('codecopy').click();
+    await settle();
+    ok('and the button still responds',
+       w.document.getElementById('codecopy').textContent !== 'Copy');
   }
 }
 
