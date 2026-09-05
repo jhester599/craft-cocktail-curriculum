@@ -2569,6 +2569,10 @@ footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
   var profiles = read(PROFILES_KEY);
   if (!Array.isArray(profiles) || !profiles.length) profiles = [];
 
+  // A truly new arrival: no profiles, and nothing saved under the pre-profile
+  // keys either. Someone whose notes are about to be adopted is not new.
+  var firstRun = !profiles.length && !read(LEGACY_KEY) && !read(OLD_KEY);
+
   // First run under the profile scheme. Anything already saved belongs to
   // whoever has been using this browser, so it is adopted into the first
   // profile rather than stranded. The old keys stay put as a backup.
@@ -2597,6 +2601,30 @@ footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
   var current = null;
   try { current = localStorage.getItem(CURRENT_KEY); } catch (e) {}
   if (typeof current !== "string" || profiles.indexOf(current) === -1) current = profiles[0];
+
+  // Ask a brand-new visitor who they are, once. Only when the browser is
+  // genuinely empty: someone with adopted notes already has a profile, and
+  // being prompted on a device you have used for months would be baffling.
+  // A blocked or dismissed prompt leaves DEFAULT_PROFILE in place, which is
+  // exactly the old behaviour, so this can only improve on it.
+  if (firstRun) {
+    var asked = null;
+    try {
+      asked = prompt(
+        "Your initials, so your notes are filed under your name rather than " +
+        "someone else's.\n\nUp to three letters. You can change it later with " +
+        "Rename.", "");
+    } catch (e) {}
+    var chosen = cleanInitials(asked);
+    if (chosen && chosen !== current) {
+      profiles = [chosen];
+      current = chosen;
+      try {
+        localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+        localStorage.setItem(CURRENT_KEY, current);
+      } catch (e) {}
+    }
+  }
 
   var data = read(dataKey(current));
   if (!data || typeof data !== "object") data = {};

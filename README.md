@@ -36,7 +36,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 123 tracker checks + 14 link-checker checks
+npm test                  # 133 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -63,7 +63,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    HTML, editing `data.py` without rebuilding would silently ship a stale site. The check
    covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 123 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 133 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -168,7 +168,10 @@ their cocktail no matter what number it is displayed as.
 **Profiles.** Storage is namespaced per set of initials, so several people can share one
 device without overwriting each other: `bar52:v2:JRH` and `bar52:bottles:v1:JRH`, with
 `bar52:profiles` listing them and `bar52:current` remembering the selection. Initials are up
-to three letters. A fresh browser gets a profile called `YOU`, renameable from the picker.
+to three letters. A brand-new browser is asked for them on first load; dismissing that prompt
+falls back to a profile called `YOU`, renameable from the picker. The prompt only appears when
+the browser is genuinely empty — a visitor whose pre-profile notes are about to be adopted has
+been using the site for months and is not asked.
 
 On the first load under this scheme, anything already saved under the un-namespaced
 `bar52:v2` / `bar52:bottles:v1` is **adopted** into that first profile rather than stranded,

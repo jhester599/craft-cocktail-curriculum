@@ -21,6 +21,10 @@ function load(seed) {
       if (seed) for (const [k, v] of Object.entries(seed)) {
         window.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
       }
+      // jsdom does not implement prompt and logs a stack trace per call. The
+      // first-run flow calls it, so stub it: null is "dismissed", which is the
+      // behaviour every test outside the first-run block expects.
+      window.prompt = () => null;
     },
   });
   return dom;
@@ -490,6 +494,7 @@ const v1 = {
       runScripts: 'dangerously',
       url: 'https://example.com/',
       beforeParse(window) {
+        window.prompt = () => null;
         for (const [k, v] of Object.entries(seed || {})) {
           window.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
         }
@@ -587,6 +592,7 @@ const v1 = {
     const dom = new JSDOM(html, {
       runScripts: 'dangerously', url: 'https://example.com/',
       beforeParse(w) {
+        w.prompt = () => null;
         w.localStorage.setItem('bar52:code:YOU', CODE);
         w.fetch = () => { throw new Error('boom'); };
       },
@@ -599,7 +605,7 @@ const v1 = {
   {
     const dom = new JSDOM(html, {
       runScripts: 'dangerously', url: 'https://example.com/',
-      beforeParse(w) { w.localStorage.setItem('bar52:code:YOU', CODE); },
+      beforeParse(w) { w.prompt = () => null; w.localStorage.setItem('bar52:code:YOU', CODE); },
     });
     ok('a browser with no fetch says so rather than erroring',
        /cannot sync/.test(dom.window.document.getElementById('syncstat').textContent));
@@ -653,6 +659,61 @@ const v1 = {
     ok('the guide says initials are not a password',
        /not a password/i.test(g.body.textContent));
     ok('no unsubstituted template placeholders', !/%\([a-z_]+\)s/.test(guide));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// First run: ask who this is, rather than seating everyone in YOU
+// ---------------------------------------------------------------------------
+{
+  function firstRun(seed, answer) {
+    return new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) {
+        for (const [k, v] of Object.entries(seed || {})) {
+          w.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+        }
+        w.prompt = () => answer;
+      },
+    }).window;
+  }
+  const profilesOf = w => JSON.parse(w.localStorage.getItem('bar52:profiles') || '[]');
+
+  {
+    const w = firstRun({}, 'jrh');
+    ok('a new visitor is asked, and gets their own profile', profilesOf(w)[0] === 'JRH');
+    ok('initials are normalised to upper case',
+       w.localStorage.getItem('bar52:current') === 'JRH');
+    ok('the default profile is not left lying around', profilesOf(w).length === 1);
+  }
+  {
+    const w = firstRun({}, null);
+    ok('dismissing the prompt falls back to the old behaviour', profilesOf(w)[0] === 'YOU');
+  }
+  {
+    const w = firstRun({}, '!!@#$');
+    ok('an answer with no letters falls back too', profilesOf(w)[0] === 'YOU');
+  }
+  {
+    const w = firstRun({}, 'jonathan');
+    ok('a long answer is trimmed to three letters', profilesOf(w)[0] === 'JON');
+  }
+
+  // Someone with existing notes is not a new visitor and must not be prompted.
+  {
+    const w = firstRun({ 'bar52:v2': { 'last-word': { made: true, note: 'mine' } } }, 'XXX');
+    ok('a browser with adopted notes is not prompted', profilesOf(w)[0] === 'YOU');
+    ok('and those notes survive',
+       JSON.parse(w.localStorage.getItem('bar52:v2:YOU'))['last-word'].note === 'mine');
+  }
+  {
+    const w = firstRun({ 'bar52:v1': { '1': { made: true } } }, 'XXX');
+    ok('a browser with v1 data is not prompted either', profilesOf(w)[0] === 'YOU');
+  }
+  {
+    const w = firstRun({ 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH' }, 'XXX');
+    ok('an established profile is never re-prompted',
+       profilesOf(w).join() === 'JRH' && w.localStorage.getItem('bar52:current') === 'JRH');
   }
 }
 

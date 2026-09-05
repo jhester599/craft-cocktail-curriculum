@@ -73,10 +73,10 @@ footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--line);
   <p>At the top of the page there is <strong>Tracking as</strong> with a set of
   initials next to it. Everything you mark, rate or write is filed under
   whichever initials are showing.</p>
-  <p>A fresh browser starts as <kbd>YOU</kbd>. Press <kbd>Rename</kbd> and make it
-  yours &mdash; up to three letters. If someone else uses the same phone or laptop,
-  press <kbd>Add someone</kbd> and they get their own set, kept completely separate
-  from yours.</p>
+  <p>The first time you open the site it asks for your initials &mdash; up to three
+  letters. If you skipped that, or want to change them, press <kbd>Rename</kbd>.
+  If someone else uses the same phone or laptop, press <kbd>Add someone</kbd> and
+  they get their own set, kept completely separate from yours.</p>
   <div class="card">
     <h3>Initials are a label, not a password</h3>
     <p>Anyone holding this device can switch to your initials and read your notes.
