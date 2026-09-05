@@ -35,18 +35,18 @@ jobs:
       # The whole point: docs/index.html is generated, and GitHub Pages serves
       # the committed copy. If someone edits data.py and forgets to rebuild,
       # the site silently ships stale content. Fail here instead.
-      - name: Check the committed page matches a fresh build
+      - name: Check the committed pages match a fresh build
         run: |
-          if ! git diff --quiet -- docs/index.html; then
-            echo "::error file=docs/index.html::docs/index.html is stale. Run 'python3 build.py' and commit the result."
+          if ! git diff --quiet -- docs/; then
+            echo "::error file=docs/index.html::The committed pages under docs/ are stale. Run 'python3 build.py' and commit the result."
             echo
             echo "Diff between the committed page and a fresh build:"
-            git --no-pager diff --stat -- docs/index.html
+            git --no-pager diff --stat -- docs/
             echo
-            git --no-pager diff -- docs/index.html | head -200
+            git --no-pager diff -- docs/ | head -200
             exit 1
           fi
-          echo "docs/index.html is up to date with data.py, tracker.py and build.py."
+          echo "docs/ is up to date with the sources."
 
       - name: Run the tracker smoke test
         run: npm test

@@ -10,13 +10,15 @@ no dependencies. Host it on GitHub Pages as-is.
 
 | File | What it is |
 |---|---|
-| `docs/index.html` | The built page — the only file that gets served. Generated; do not edit. |
+| `docs/index.html` | The built page. Generated; do not edit. |
+| `docs/synccheck.html` | Generated sync diagnostic. Only built when `supabase.py` is configured. |
 | `data.py` | **Content source.** All 52 cocktails (ingredients, method, video, note) and the whole bottle appendix. Edit here to change recipes or brands. |
 | `tracker.py` | The progress/notes UI — CSS, dashboard markup, and the localStorage JavaScript. |
 | `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
 | `ingredients.py` | **Ingredient → bottle map.** The ordered keyword table behind both the in-recipe jump links and the "what can I make tonight?" requirements. Order matters; see the module docstring. |
 | `supabase.py` | **Sync config.** Project URL and publishable key. Both are public by design; leave `URL` empty to build with sync off. |
+| `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
 
@@ -54,9 +56,9 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
 
 1. `npm ci` — installs jsdom, the only dev dependency.
 2. `python3 build.py` — regenerates the page.
-3. **Staleness gate** — `git diff --quiet -- docs/index.html`. Because Pages serves the
-   *committed* HTML, editing `data.py` without rebuilding would silently ship a stale
-   site. The job fails with the offending diff if the committed page does not match a
+3. **Staleness gate** — `git diff --quiet -- docs/`. Because Pages serves the *committed*
+   HTML, editing `data.py` without rebuilding would silently ship a stale site. The check
+   covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
 4. `npm test` — the 108 jsdom checks plus 14 covering the link checker.
 
@@ -201,6 +203,19 @@ code is the only way in.
 
 What this is not: a code is a bearer token. Anyone holding one can read and write that
 person's notes. Convenience-grade, not secret-grade.
+
+**Checking it actually works.** The test suite drives sync against a mocked `fetch`, which proves
+the merge logic but nothing about the network: CORS from the Pages origin, PostgREST accepting
+the argument names, the grants behaving as intended. None of that can be checked from a build
+environment that cannot reach supabase.co. So `docs/synccheck.html` runs those five checks from
+whatever browser you open it in — including a phone — and reports each one:
+
+    https://jhester599.github.io/craft-cocktail-curriculum/synccheck.html
+
+It writes one throwaway row under a random code, names that code so you can delete it, and never
+touches a real profile. The check that matters most is the last: a direct read of the `shelves`
+table must be **refused**. If it returns rows, `anon` has a grant it should not and anyone with
+the key could enumerate every sync code.
 
 **Setup:** run `schema.sql` in the Supabase SQL editor, put the project URL and publishable key
 in `supabase.py`, rebuild. Note that a free-tier project **pauses after 7 days without database

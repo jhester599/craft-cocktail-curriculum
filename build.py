@@ -11,6 +11,7 @@ from tracker import (TRACK_CSS, dash_html, track_js, track_block,
 from ohlq import BASE as OHLQ_BASE, PRODUCTS, CATEGORIES, WAVE_ITEMS
 from ingredients import MAP as ING_MAP, PANTRY
 import supabase
+import synccheck
 
 
 # ---------------------------------------------------------------------------
@@ -597,3 +598,14 @@ print("ohlq links: %d product, %d category, %d search fallback"
          sum("site%3Aohlq.com" in h for h in _hrefs)))
 print("slugs:", len(SLUGS), "unique:", len(set(SLUGS)))
 print("sync:", "on (%s)" % supabase.URL if supabase.enabled() else "off")
+
+# A diagnostic page for the one thing the test suite cannot cover: whether a
+# real browser on the real origin can talk to Supabase at all.
+CHECK = os.path.join(os.path.dirname(OUT), "synccheck.html")
+if supabase.enabled():
+    with open(CHECK, "w", encoding="utf-8") as f:
+        f.write(synccheck.render(supabase.URL, supabase.PUBLISHABLE_KEY))
+    print("wrote", CHECK)
+elif os.path.exists(CHECK):
+    os.remove(CHECK)
+    print("removed", CHECK, "(sync is off)")
