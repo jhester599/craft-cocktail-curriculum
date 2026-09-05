@@ -28,7 +28,7 @@ are not built at all; everything else works exactly the same, offline included.
 | `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
-| `smoke-test.mjs` | 165 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
+| `smoke-test.mjs` | 178 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
 | `check-videos.test.mjs` | 14 checks on the link checker, against a mocked endpoint. |
 | `keepalive.test.py` | 12 checks on the keep-alive, against a stubbed network. |
 
@@ -44,7 +44,7 @@ slugs.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 165 tracker checks + 14 link-checker checks
+npm test                  # 178 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -72,7 +72,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    with the offending diff if anything under `docs/` differs from a fresh build; the check
    covers the whole directory, so `start.html` and `synccheck.html` cannot drift either. Fix
    it by running `python3 build.py` and committing the result.
-4. `npm test` — the 165 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 178 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -254,6 +254,13 @@ cosmetic; separators and case are stripped, so `k7mp2xqr9tvb` is the same code. 
 59 bits, far past guessing over a network, and short enough to read off one phone and type into
 another. The code is the identity *and* the password: it names a row that cannot be enumerated.
 
+**The profile name travels with the data.** The payload records whose shelf it is, so a device
+that has just linked renames itself to match rather than sitting there as `YOU` while showing
+someone else's notes. The rename moves the notes, the shelf *and* the sync code together —
+leaving the code behind would silently unlink the device. If that device already has a separate
+profile by that name, the rename is skipped and the status line says so, because merging two
+local profiles is not something to do without asking.
+
 **Two buttons, and which device you press them on matters.** `My sync code` shows (or creates)
 this device's code — press it on the device you have been using. `Link a device` takes a code
 typed in from elsewhere — press it on the device you are adding. These were one button, which
@@ -263,7 +270,8 @@ a second code, so the two devices tracked separately with no sign anything was w
 `CODE_LENGTH` in `supabase.py` and the minimum length in `schema.sql` must agree. **Changing
 the length means re-running `schema.sql`** — the functions reject anything shorter than their
 own minimum, so a page issuing 12-character codes against functions that still demand 20 fails
-every sync. Codes issued at an older, longer length keep working.
+every sync. Codes issued at an older, longer length keep working, and `My sync code` offers to
+swap one for a short one — accepting means re-linking any other device.
 
 `docs/index.html` talks to Supabase with plain `fetch` against two RPC endpoints. No SDK, no
 toolchain — the page is still one self-contained file; what it gains is a *service* dependency,

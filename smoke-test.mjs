@@ -852,5 +852,104 @@ const v1 = {
   ok('and the refusal says how long it should be', /12/.test(short.alerted()));
 }
 
+// ---------------------------------------------------------------------------
+// The label follows the data, and legacy over-long codes can be shortened
+// ---------------------------------------------------------------------------
+{
+  const settle = () => new Promise(r => setTimeout(r, 0));
+  const CODE12 = 'K7MP2XQR9TVB';
+  const OLD26 = 'ABCDEFGHJKMNPQRSTVWXYZ2345';
+
+  function dev(seed, remote, opts = {}) {
+    let alerted = null;
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) {
+        for (const [k, v] of Object.entries(seed || {})) {
+          w.localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+        }
+        w.alert = m => { alerted = m; };
+        w.confirm = () => opts.confirm !== false;
+        w.prompt = () => opts.typed ?? null;
+        w.fetch = (url, init) => Promise.resolve({
+          ok: true, status: 200,
+          json: () => Promise.resolve(
+            String(url).endsWith('pull') ? (remote || {}) : 't'),
+        });
+      },
+    });
+    return { w: dom.window, alerted: () => alerted };
+  }
+
+  // The phone: linked, but still calling itself YOU. This is the reported bug.
+  {
+    const { w } = dev(
+      { 'bar52:profiles': ['YOU'], 'bar52:current': 'YOU', 'bar52:code:YOU': CODE12 },
+      { version: 2, profile: 'JRH',
+        entries: { 'last-word': { made: true, note: 'from the laptop' } }, bottles: {} });
+    await settle(); await settle();
+
+    ok('the linked device takes the name from the data',
+       w.localStorage.getItem('bar52:current') === 'JRH');
+    ok('the picker shows it', w.document.getElementById('profile').value === 'JRH');
+    ok('YOU is gone rather than left as a duplicate',
+       JSON.parse(w.localStorage.getItem('bar52:profiles')).join() === 'JRH');
+    ok('the notes moved with the name',
+       !!JSON.parse(w.localStorage.getItem('bar52:v2:JRH') || '{}')['last-word']);
+    ok('nothing is left behind under the old name',
+       !w.localStorage.getItem('bar52:v2:YOU'));
+    ok('the sync code moved too, so the device stays linked',
+       w.localStorage.getItem('bar52:code:JRH') === CODE12 &&
+       !w.localStorage.getItem('bar52:code:YOU'));
+  }
+
+  // But not if that would collide with a real second profile on this device.
+  {
+    const { w } = dev(
+      { 'bar52:profiles': ['YOU', 'JRH'], 'bar52:current': 'YOU',
+        'bar52:code:YOU': CODE12, 'bar52:v2:JRH': { 'jungle-bird': { made: true } } },
+      { version: 2, profile: 'JRH', entries: {}, bottles: {} });
+    await settle(); await settle();
+    ok('an existing local profile of that name is not clobbered',
+       w.localStorage.getItem('bar52:current') === 'YOU' &&
+       !!JSON.parse(w.localStorage.getItem('bar52:v2:JRH'))['jungle-bird']);
+    ok('and the page explains why the name did not change',
+       /already has a JRH profile/.test(w.document.getElementById('syncstat').textContent));
+    ok('and the explanation survives the success message',
+       /Synced/.test(w.document.getElementById('syncstat').textContent));
+  }
+
+  // A code from before the length was cut can be swapped for a short one.
+  {
+    const { w, alerted } = dev(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': OLD26 },
+      { entries: {}, bottles: {} });
+    w.document.getElementById('synccode').click();
+    await settle();
+    const now = w.localStorage.getItem('bar52:code:JRH');
+    ok('an over-long code is replaced when you accept', now.length === 12);
+    ok('and the new one is shown in groups of four',
+       /[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(alerted()));
+  }
+  {
+    const { w } = dev(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': OLD26 },
+      { entries: {}, bottles: {} }, { confirm: false });
+    w.document.getElementById('synccode').click();
+    await settle();
+    ok('declining keeps the old code working',
+       w.localStorage.getItem('bar52:code:JRH') === OLD26);
+  }
+  {
+    const { w } = dev(
+      { 'bar52:profiles': ['JRH'], 'bar52:current': 'JRH', 'bar52:code:JRH': CODE12 },
+      { entries: {}, bottles: {} });
+    w.document.getElementById('synccode').click();
+    await settle();
+    ok('a code already at the right length is left alone',
+       w.localStorage.getItem('bar52:code:JRH') === CODE12);
+  }
+}
+
 console.log(fail ? `\n${fail} FAILURES` : '\nAll checks passed');
 process.exit(fail ? 1 : 0);

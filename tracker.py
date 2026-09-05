@@ -792,7 +792,7 @@ TRACK_JS = r'''
     // rpc() can throw synchronously - before any promise exists to catch on -
     // so the first call is wrapped. Without this, a synchronous failure escapes
     // the handler below entirely and surfaces as an uncaught page error.
-    var started;
+    var started, nameNote = "";
     try {
       started = rpc("pull", { p_code: code });
     } catch (e) {
@@ -802,6 +802,21 @@ TRACK_JS = r'''
     }
     return started.then(function (remote) {
       if (!remote || typeof remote !== "object") remote = {};
+
+      // The payload records whose shelf it is. A device that has just linked is
+      // still showing whatever it called itself - usually the default YOU - so
+      // the notes arrive under the wrong name. Take the name with the data.
+      // Skipped if this device already has a separate profile by that name,
+      // since merging two local profiles is not something to do silently.
+      var theirs = cleanInitials(remote.profile);
+      if (theirs && theirs !== current) {
+        if (profiles.indexOf(theirs) === -1) renameCurrentTo(theirs);
+        // Held rather than shown now: the success message at the end of this
+        // chain would overwrite it, and the reader would never see it.
+        else nameNote = " \u00b7 this device already has a " + theirs +
+                        " profile, so this one is still " + current;
+      }
+
       data = mergeEntries(remote.entries || {}, data);
       own = mergeOwn(remote.bottles || {}, own);
       try { localStorage.setItem(dataKey(current), JSON.stringify(data)); } catch (e) {}
@@ -816,8 +831,9 @@ TRACK_JS = r'''
     }).then(function () {
       var n = Object.keys(data).length;
       syncStatus("Synced " + new Date().toLocaleTimeString() +
-                 (n ? " \u00b7 " + n + " drink" + (n === 1 ? "" : "s") + " logged" : ""),
-                 "good");
+                 (n ? " \u00b7 " + n + " drink" + (n === 1 ? "" : "s") + " logged" : "") +
+                 nameNote,
+                 nameNote ? "bad" : "good");
     }).catch(function (e) {
       // Local data is untouched by a failure, so this is a notice, not a loss.
       syncStatus("Sync failed (" + e.message + ") \u2014 your notes are safe here.", "bad");
@@ -845,6 +861,19 @@ TRACK_JS = r'''
   // devices, two codes, nothing to sync, and no hint that was what happened.
   function showMyCode() {
     var code = getCode(), fresh = false;
+    // Codes issued before the length was cut are still valid, just tedious to
+    // type. Offer a short one rather than leaving people copying 26 characters.
+    if (code && code.length > CODE_LEN) {
+      if (confirm(
+            "This code is " + code.length + " characters, from an earlier version " +
+            "of the site.\n\nReplace it with a shorter " + CODE_LEN +
+            "-character one?\n\nYour notes are kept. Any other device already " +
+            "linked will need \"Link a device\" again with the new code.")) {
+        code = newCode();
+        setCode(code);
+        fresh = true;
+      }
+    }
     if (!code) { code = newCode(); setCode(code); fresh = true; }
     alert(
       (fresh ? "Here is the sync code for " + current + ".\n\n"
@@ -964,6 +993,26 @@ TRACK_JS = r'''
     switchProfile(who);
   }
 
+  // Moves the notes, the shelf AND the sync code with the label. Forgetting the
+  // code would silently unlink the device from everything it was syncing with.
+  function renameCurrentTo(who) {
+    if (!who || who === current || profiles.indexOf(who) !== -1) return false;
+    var code = getCode();
+    try {
+      localStorage.setItem(dataKey(who), JSON.stringify(data));
+      localStorage.setItem(ownKey(who), JSON.stringify(own));
+      localStorage.removeItem(dataKey(current));
+      localStorage.removeItem(ownKey(current));
+      localStorage.removeItem(codeKey(current));
+    } catch (e) {}
+    profiles[profiles.indexOf(current)] = who;
+    current = who;
+    if (code) setCode(code);
+    saveProfiles();
+    renderProfiles();
+    return true;
+  }
+
   // Rename moves the data with the label, so the default YOU profile can be
   // made yours without starting over.
   function renameProfile() {
@@ -972,16 +1021,7 @@ TRACK_JS = r'''
     var who = cleanInitials(raw);
     if (!who || who === current) return;
     if (profiles.indexOf(who) !== -1) { alert(who + " already exists on this device."); return; }
-    try {
-      localStorage.setItem(dataKey(who), JSON.stringify(data));
-      localStorage.setItem(ownKey(who), JSON.stringify(own));
-      localStorage.removeItem(dataKey(current));
-      localStorage.removeItem(ownKey(current));
-    } catch (e) {}
-    profiles[profiles.indexOf(current)] = who;
-    current = who;
-    saveProfiles();
-    renderProfiles();
+    renameCurrentTo(who);
   }
 
   function fillOwn() {

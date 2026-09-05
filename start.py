@@ -131,7 +131,8 @@ SYNC_SECTIONS = """
     <h3>On the device you are adding</h3>
     <p>Press <kbd>Link a device</kbd> and type that code in. Dashes and capitals
     do not matter. Your notes on this device are merged with the other device's,
-    not replaced.</p>
+    not replaced, and this device takes on the same initials &mdash; so if the
+    first one says <kbd>JRH</kbd>, this one will too.</p>
   </div>
   <p>Both now show the same notes. After that it syncs by itself: when you open
   the page, a few seconds after you change something, or whenever you press
