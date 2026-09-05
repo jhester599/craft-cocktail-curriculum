@@ -12,12 +12,14 @@ no dependencies. Host it on GitHub Pages as-is.
 |---|---|
 | `docs/index.html` | The built page. Generated; do not edit. |
 | `docs/synccheck.html` | Generated sync diagnostic. Only built when `supabase.py` is configured. |
+| `docs/start.html` | Generated onboarding guide. Its sync sections disappear when sync is off. |
 | `data.py` | **Content source.** All 52 cocktails (ingredients, method, video, note) and the whole bottle appendix. Edit here to change recipes or brands. |
 | `tracker.py` | The progress/notes UI — CSS, dashboard markup, and the localStorage JavaScript. |
 | `build.py` | Renders `data.py` + `tracker.py` into the HTML. Owns the page CSS, metric conversion, link generation and anchor mapping. |
 | `ohlq.py` | **Ohio Liquor link data.** Product and category paths for the buying guide, plus the wave-name → appendix-item map. Contains no logic. |
 | `ingredients.py` | **Ingredient → bottle map.** The ordered keyword table behind both the in-recipe jump links and the "what can I make tonight?" requirements. Order matters; see the module docstring. |
 | `supabase.py` | **Sync config.** Project URL and publishable key. Both are public by design; leave `URL` empty to build with sync off. |
+| `start.py` | Generates `docs/start.html`, the "Start here" guide linked from the profile row. |
 | `keepalive.py` | Pings Supabase so the free-tier project does not pause. Standard library only. |
 | `synccheck.py` | Generates `docs/synccheck.html`, a diagnostic page that exercises the sync backend from a real browser. |
 | `schema.sql` | The Supabase table and the `pull`/`push`/`ping` functions. Run once in the SQL editor. Explains the security model. |
@@ -34,7 +36,7 @@ bottle links.
 
 ```bash
 npm install               # jsdom, for the test only
-npm test                  # 108 tracker checks + 14 link-checker checks
+npm test                  # 123 tracker checks + 14 link-checker checks
 npm run serve             # http://localhost:8000
 ```
 
@@ -61,7 +63,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    HTML, editing `data.py` without rebuilding would silently ship a stale site. The check
    covers the whole directory, so `synccheck.html` cannot drift either. The job fails with the offending diff if the committed page does not match a
    fresh build. Fix it by running `python3 build.py` and committing the result.
-4. `npm test` — the 108 jsdom checks plus 14 covering the link checker.
+4. `npm test` — the 123 jsdom checks plus 14 covering the link checker.
 5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
@@ -175,6 +177,18 @@ already holds data, so it cannot re-run and clobber newer notes.
 
 This is per-device separation and not privacy: anyone using the device can switch profiles and
 read the notes.
+
+## Onboarding
+
+`docs/start.html` explains the tracking model to someone who has just been sent the link:
+initials are a label rather than a login, and a sync code is a long string you type into a
+second device. Neither is guessable from looking at the page. It is linked as **Start here**
+next to the profile picker, emphasised until the visitor has notes or a sync code and quiet
+afterwards.
+
+It is generated, so its sync sections vanish (and its sections renumber) when `supabase.py`
+is blank, rather than describing a feature that is not there. It is a separate page rather
+than a modal so the URL can be sent along with the site link.
 
 ## Cross-device sync
 

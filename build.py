@@ -12,6 +12,7 @@ from ohlq import BASE as OHLQ_BASE, PRODUCTS, CATEGORIES, WAVE_ITEMS
 from ingredients import MAP as ING_MAP, PANTRY
 import supabase
 import synccheck
+import start
 
 
 # ---------------------------------------------------------------------------
@@ -598,6 +599,13 @@ print("ohlq links: %d product, %d category, %d search fallback"
          sum("site%3Aohlq.com" in h for h in _hrefs)))
 print("slugs:", len(SLUGS), "unique:", len(set(SLUGS)))
 print("sync:", "on (%s)" % supabase.URL if supabase.enabled() else "off")
+
+# Onboarding. The tracking model is simple but unfamiliar, and nobody guesses
+# "paste this 26-character code into your other phone" from looking at the page.
+START = os.path.join(os.path.dirname(OUT), "start.html")
+with open(START, "w", encoding="utf-8") as f:
+    f.write(start.render(supabase.enabled()))
+print("wrote", START)
 
 # A diagnostic page for the one thing the test suite cannot cover: whether a
 # real browser on the real origin can talk to Supabase at all.

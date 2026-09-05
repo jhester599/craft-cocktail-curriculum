@@ -581,6 +581,30 @@ const v1 = {
        /safe/.test(w.document.getElementById('syncstat').textContent));
   }
 
+  // rpc() can throw synchronously, before any promise exists to catch on. That
+  // used to escape the handler and surface as an uncaught page error.
+  {
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) {
+        w.localStorage.setItem('bar52:code:YOU', CODE);
+        w.fetch = () => { throw new Error('boom'); };
+      },
+    });
+    const stat = dom.window.document.getElementById('syncstat');
+    ok('a synchronous fetch failure is caught, not thrown',
+       /Sync failed \(boom\)/.test(stat.textContent));
+    ok('and it still says local data is safe', /safe/.test(stat.textContent));
+  }
+  {
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously', url: 'https://example.com/',
+      beforeParse(w) { w.localStorage.setItem('bar52:code:YOU', CODE); },
+    });
+    ok('a browser with no fetch says so rather than erroring',
+       /cannot sync/.test(dom.window.document.getElementById('syncstat').textContent));
+  }
+
   // Codes are per profile: one person's code must not sync another's notes.
   {
     const { window: w, calls } = loadSync(
@@ -589,6 +613,46 @@ const v1 = {
       {});
     await settle();
     ok('a profile without a code does not sync', calls.length === 0);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Start here" onboarding link
+// ---------------------------------------------------------------------------
+{
+  const link = w => w.document.getElementById('starthere');
+
+  {
+    const { window: w } = load();
+    ok('the start-here link exists', !!link(w));
+    ok('it sits with the profile controls', !!link(w).closest('.who'));
+    ok('it points at the guide', link(w).getAttribute('href') === 'start.html');
+    ok('a first visit gets the emphasised version', link(w).classList.contains('new'));
+  }
+
+  // Someone mid-way through the year does not need it shouting at them.
+  {
+    const { window: w } = load({ [KEY]: { 'last-word': { made: true } } });
+    ok('it quietens down once there are notes', !link(w).classList.contains('new'));
+  }
+  {
+    const { window: w } = load({ 'bar52:code:YOU': 'ABCDEFGHJKMNPQRSTVWXYZ2345' });
+    ok('a configured sync code also quietens it', !link(w).classList.contains('new'));
+  }
+
+  // The guide itself has to survive being generated.
+  {
+    const guide = readFileSync('docs/start.html', 'utf8');
+    const g = new JSDOM(guide).window.document;
+    ok('the guide has a title', /Start here/.test(g.querySelector('title').textContent));
+    ok('the guide links back to the drinks',
+       [...g.querySelectorAll('a')].some(a => a.getAttribute('href') === './'));
+    ok('the guide explains the sync code', /Sync code/.test(g.body.textContent));
+    ok('the guide is blunt about what the code protects',
+       /cannot be revoked/.test(g.body.textContent));
+    ok('the guide says initials are not a password',
+       /not a password/i.test(g.body.textContent));
+    ok('no unsubstituted template placeholders', !/%\([a-z_]+\)s/.test(guide));
   }
 }
 

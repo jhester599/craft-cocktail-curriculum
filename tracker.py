@@ -7,6 +7,16 @@
 import json
 
 TRACK_CSS = '''
+/* ---- start-here link ---- */
+.starthere{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+  font-size:13.5px;color:var(--muted);min-height:44px;padding:0 4px}
+.starthere:hover,.starthere:focus-visible{color:var(--chart)}
+.starthere svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5}
+/* Louder until there is something saved: a first-time visitor needs it, and
+   someone who has been logging drinks for a month does not. */
+.starthere.new{color:var(--chart);border:1px solid var(--line);border-radius:2px;
+  background:var(--panel-2);padding:0 12px}
+
 /* ---- cross-device sync ---- */
 .sync{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
 .sync button{font:inherit;font-size:13.5px;color:var(--muted);background:var(--panel-2);
@@ -120,6 +130,10 @@ _DASH_HTML = '''
       <select id="profile" aria-label="Who is tracking"></select>
       <button id="addprofile" type="button">Add someone</button>
       <button id="renameprofile" type="button">Rename</button>
+      <a class="starthere" id="starthere" href="start.html">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v4M8 4.9v.1"/></svg>
+        Start here
+      </a>
     </div>
     %(sync)s
     <div class="dash-top">
@@ -394,6 +408,7 @@ TRACK_JS = r'''
     for (var k in data) {
       if (data[k] && data[k].rating) { rated++; sum += data[k].rating; }
     }
+    renderStartHere();
     document.getElementById("pnote").textContent = made === 0
       ? "Nothing logged yet"
       : (SLUGS.length - made) + " to go" + (rated ? " \u00b7 average rating " + (sum / rated).toFixed(1) : "");
@@ -633,9 +648,24 @@ TRACK_JS = r'''
       return;
     }
     if (syncing) return;
+    if (typeof fetch !== "function") {
+      syncStatus("This browser cannot sync (no fetch support).", "bad");
+      return;
+    }
     syncing = true;
     syncStatus("Syncing\u2026");
-    return rpc("pull", { p_code: code }).then(function (remote) {
+    // rpc() can throw synchronously - before any promise exists to catch on -
+    // so the first call is wrapped. Without this, a synchronous failure escapes
+    // the handler below entirely and surfaces as an uncaught page error.
+    var started;
+    try {
+      started = rpc("pull", { p_code: code });
+    } catch (e) {
+      syncing = false;
+      syncStatus("Sync failed (" + e.message + ") \u2014 your notes are safe here.", "bad");
+      return;
+    }
+    return started.then(function (remote) {
       if (!remote || typeof remote !== "object") remote = {};
       data = mergeEntries(remote.entries || {}, data);
       own = mergeOwn(remote.bottles || {}, own);
@@ -678,6 +708,14 @@ TRACK_JS = r'''
     if (v.length < 20) { alert("A sync code needs at least 20 characters."); return; }
     setCode(v);
     syncNow();
+  }
+
+  // A first visit has no notes and no code; that is who the guide is for.
+  function renderStartHere() {
+    var link = document.getElementById("starthere");
+    if (!link) return;
+    var untouched = !Object.keys(data).length && !(SUPA_URL && getCode());
+    link.classList.toggle("new", untouched);
   }
 
   function renderProfiles() {
