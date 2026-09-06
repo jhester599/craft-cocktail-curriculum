@@ -126,7 +126,9 @@ covered without depending on YouTube being reachable.
 
 - **What can I make tonight?** Each buying-guide row carries an "I have this" checkbox.
   The panel under the dashboard lists what is fully makeable and what is one bottle short,
-  naming the bottle. Requirements are OR-groups — the Boulevardier's `bourbon or rye` is
+  naming the bottle. Drinks already marked as made are kept out of the "ready to make now"
+  count and shown separately under "made before, ready again", so the headline number is
+  the number of *new* drinks the shelf covers. Requirements are OR-groups — the Boulevardier's `bourbon or rye` is
   satisfied by either — computed at build time from the recipe text and baked into the
   page as `REQS`. Pantry items (citrus, simple syrup, egg white, soda) are never
   requirements, so they can never block a drink.

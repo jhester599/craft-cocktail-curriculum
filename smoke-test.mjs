@@ -284,6 +284,88 @@ const v1 = {
     ok('bourbon alone satisfies it too', listed(w).includes('boulevardier'));
   }
 
+  // A drink you have made is still makeable, but it is not what the panel is
+  // being asked. It moves to its own group instead of padding the headline count.
+  {
+    const { window: w } = load();
+    const group = (label) => {
+      const labs = [...w.document.querySelectorAll('#tonight .tlab')];
+      const lab = labs.find(l => l.textContent.includes(label));
+      return lab && lab.parentNode;
+    };
+    const inGroup = (label) => {
+      const g = group(label);
+      return g ? [...g.querySelectorAll('a[href^="#"]')]
+                   .map(a => a.getAttribute('href').slice(1)) : [];
+    };
+    const countIn = (label) => {
+      const g = group(label);
+      return g ? Number(g.querySelector('.tlab b').textContent) : -1;
+    };
+
+    tick(w, 'b-sweet-vermouth');
+    tick(w, 'b-campari');
+    tick(w, 'b-rye-100-proof');
+    ok('an unmade makeable drink starts under "ready to make now"',
+       inGroup('ready to make now').includes('boulevardier'));
+    ok('and there is no "made before" group yet', group('made before') === undefined ||
+       group('made before') === null);
+
+    const before = countIn('ready to make now');
+    w.document.querySelector('.drink[data-id="boulevardier"] .mk').click();
+
+    ok('marking it made drops it out of "ready to make now"',
+       !inGroup('ready to make now').includes('boulevardier'));
+    ok('the headline count drops by one', countIn('ready to make now') === before - 1);
+    ok('it is not lost - it moves to "made before, ready again"',
+       inGroup('made before, ready again').includes('boulevardier'));
+    ok('the moved drink is marked as already made',
+       !!w.document.querySelector('#tonight a.was[href="#boulevardier"]'));
+    ok('and carries hidden text for a screen reader',
+       /Already made/.test((w.document.querySelector('#tonight a.was') || {}).textContent || ''));
+
+    // Un-marking has to put it back, or the panel only ever loses drinks.
+    w.document.querySelector('.drink[data-id="boulevardier"] .mk').click();
+    ok('un-marking returns it to "ready to make now"',
+       inGroup('ready to make now').includes('boulevardier') &&
+       countIn('ready to make now') === before);
+  }
+
+  // Made drinks stay in the one-short list - the bottle is still worth buying -
+  // but sort below the unmade ones and carry the same marker.
+  {
+    const { window: w } = load();
+    tick(w, 'b-london-dry-gin');
+    tick(w, 'b-green-chartreuse');
+    w.document.querySelector('.drink[data-id="last-word"] .mk').click();
+    const shortLinks = [...w.document.querySelectorAll('#tonight a')]
+      .filter(a => a.querySelector('.short'));
+    const lw = shortLinks.find(a => a.getAttribute('href') === '#last-word');
+    ok('a made drink is still listed as one bottle short', !!lw);
+    ok('and is marked rather than dropped', !!lw && lw.classList.contains('was'));
+    ok('unmade short drinks sort above made ones',
+       shortLinks.every((a, i) =>
+         i === 0 || !(shortLinks[i - 1].classList.contains('was') &&
+                      !a.classList.contains('was'))));
+  }
+
+  // With everything makeable already made, the empty state has to say so rather
+  // than "keep ticking", which would read as though nothing were ticked.
+  {
+    const { window: w } = load();
+    tick(w, 'b-sweet-vermouth');
+    tick(w, 'b-campari');
+    tick(w, 'b-rye-100-proof');
+    const ready = [...w.document.querySelectorAll('#tonight a[href^="#"]')]
+      .filter(a => !a.querySelector('.short'))
+      .map(a => a.getAttribute('href').slice(1));
+    for (const slug of ready) {
+      w.document.querySelector(`.drink[data-id="${slug}"] .mk`).click();
+    }
+    ok('an all-made shelf explains itself', /made every drink/.test(panelText(w)));
+    ok('and does not tell you to keep ticking', !/keep ticking/.test(panelText(w)));
+  }
+
   // Persistence and round-trip.
   {
     const { window: w } = load();

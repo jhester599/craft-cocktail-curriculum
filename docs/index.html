@@ -294,6 +294,11 @@ body{padding-top:var(--topbar)}
   min-height:36px;line-height:20px}
 .tonight li a:hover,.tonight li a:focus-visible{border-color:var(--chart);color:var(--chart)}
 .tonight li .short{color:var(--brass);font-size:12.5px}
+.tonight li a.was{color:var(--muted);border-style:dashed}
+.tonight li a.was:hover,.tonight li a.was:focus-visible{color:var(--chart)}
+.tonight li .tick{color:var(--chart)}
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .tonight .tempty{color:var(--muted);font-size:14.5px;margin:0}
 .tonight .tempty a{color:var(--chart)}
 
@@ -2822,22 +2827,35 @@ body{padding-top:var(--topbar)}
     return names.join(" or ");
   }
 
+  // A drink you have already made is still makeable, but it is not the answer to
+  // "what should I pour tonight", and counting it under "ready to make now" made
+  // that number read higher than the number of new drinks actually available. So
+  // the made ones move to a group of their own rather than disappearing: pouring
+  // a favourite again is a fair reason to be looking at this panel.
   function renderTonight() {
     var box = document.getElementById("tonight");
     if (!box) return;
     var ownedCount = 0;
     for (var k in own) if (own[k]) ownedCount++;
 
-    var now = [], oneShort = [];
+    var fresh = [], again = [], oneShort = [];
     for (var i = 0; i < SLUGS.length; i++) {
       var slug = SLUGS[i];
       var card = document.querySelector('.drink[data-id="' + slug + '"]');
       if (!card) continue;
       var name = card.querySelector("h3") ? card.querySelector("h3").textContent : slug;
+      var made = !!(data[slug] && data[slug].made);
       var miss = missingFor(slug);
-      if (miss.length === 0) now.push({ slug: slug, name: name });
-      else if (miss.length === 1) oneShort.push({ slug: slug, name: name, need: nameFor(miss[0]) });
+      if (miss.length === 0) {
+        (made ? again : fresh).push({ slug: slug, name: name, made: made });
+      } else if (miss.length === 1) {
+        oneShort.push({ slug: slug, name: name, made: made, need: nameFor(miss[0]) });
+      }
     }
+    // One list here rather than two: a bottle is worth buying whether or not the
+    // drink is new, so the split would only add a heading. Unmade first, because
+    // that is the stronger reason to buy it.
+    oneShort.sort(function (a, b) { return (a.made ? 1 : 0) - (b.made ? 1 : 0); });
 
     if (ownedCount === 0) {
       box.innerHTML =
@@ -2848,11 +2866,17 @@ body{padding-top:var(--topbar)}
       return;
     }
 
+    // The tick is decoration; the hidden text is what a screen reader gets, since
+    // in the "one bottle short" list made and unmade drinks sit side by side.
     function list(items, extra) {
       var out = '<ul>';
       for (var i = 0; i < items.length; i++) {
-        out += '<li><a href="#' + items[i].slug + '">' + items[i].name +
-               (extra ? ' <span class="short">&middot; ' + items[i].need + '</span>' : '') +
+        var it = items[i];
+        out += '<li><a' + (it.made ? ' class="was"' : '') + ' href="#' + it.slug + '">' +
+               (it.made ? '<span class="tick" aria-hidden="true">\u2713</span> ' +
+                          '<span class="vh">Already made: </span>' : '') +
+               it.name +
+               (extra ? ' <span class="short">&middot; ' + it.need + '</span>' : '') +
                '</a></li>';
       }
       return out + '</ul>';
@@ -2863,10 +2887,19 @@ body{padding-top:var(--topbar)}
       '<p class="tsub">' + ownedCount + ' bottle' + (ownedCount === 1 ? '' : 's') +
       ' on the shelf.</p>';
 
-    html += '<div class="tgroup"><span class="tlab"><b>' + now.length + '</b> ready to make now</span>';
-    html += now.length ? list(now, false)
-                       : '<p class="tempty">Nothing yet &mdash; keep ticking.</p>';
+    html += '<div class="tgroup"><span class="tlab"><b>' + fresh.length +
+            '</b> ready to make now</span>';
+    html += fresh.length ? list(fresh, false)
+                         : '<p class="tempty">' + (again.length
+                             ? 'Nothing new &mdash; you have made every drink your shelf ' +
+                               'can currently cover.'
+                             : 'Nothing yet &mdash; keep ticking.') + '</p>';
     html += '</div>';
+
+    if (again.length) {
+      html += '<div class="tgroup"><span class="tlab"><b>' + again.length +
+              '</b> made before, ready again</span>' + list(again, false) + '</div>';
+    }
 
     if (oneShort.length) {
       html += '<div class="tgroup"><span class="tlab"><b>' + oneShort.length +
