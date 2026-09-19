@@ -92,6 +92,9 @@ footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--line);
   <strong>ready to make now</strong> and reappear below it under
   <strong>made before, ready again</strong>, so the top list is always the ones you
   have not poured yet.</p>
+  <p>In a hurry? Press <kbd>Can make now</kbd> in the row of buttons under the progress
+  bar. The page collapses to just those drinks, so you can go straight to a recipe
+  instead of reading the list. Press <kbd>All 52</kbd> to get everything back.</p>
   <p class="muted">Fresh things are assumed. It will not ask whether you have limes,
   sugar or eggs.</p>
 

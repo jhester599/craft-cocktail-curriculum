@@ -66,7 +66,8 @@ the merge logic on restore, and the reset confirm path.
 **Done.** Every buying-guide row has an "I have this" checkbox; the panel under the dashboard
 lists what is makeable now and what is one bottle short, naming the bottle. Drinks already
 made are counted separately, under "made before, ready again", so "ready to make now" means
-new to you.
+new to you. A "Can make now" filter chip narrows the card list to the same set, and a filter
+that matches nothing now says why instead of leaving the page blank.
 
 The dependency was real: `ANCHOR_MAP` could not be computed against, so it was promoted into
 `ingredients.py` as `MAP` + `PANTRY` and now drives both the jump links and the requirements.

@@ -550,6 +550,7 @@ doc = """<!doctype html>
   </nav>
 
   %s
+  <p class="fnone" id="fnone" hidden></p>
 
   <div class="apxwrap" id="apxwrap">
     <h2>What to buy</h2>

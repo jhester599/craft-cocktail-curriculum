@@ -128,7 +128,11 @@ covered without depending on YouTube being reachable.
   The panel under the dashboard lists what is fully makeable and what is one bottle short,
   naming the bottle. Drinks already marked as made are kept out of the "ready to make now"
   count and shown separately under "made before, ready again", so the headline number is
-  the number of *new* drinks the shelf covers. Requirements are OR-groups — the Boulevardier's `bourbon or rye` is
+  the number of *new* drinks the shelf covers. A **Can make now** filter chip under the
+  progress bar narrows the card list to exactly that set, for when you want the recipe
+  rather than the list. A recipe that names no specific bottle — number 52 asks for
+  "12 oz spirit" — parses to zero requirements and is left out of both, since "no bottle
+  we can name" is not "no bottle needed". Requirements are OR-groups — the Boulevardier's `bourbon or rye` is
   satisfied by either — computed at build time from the recipe text and baked into the
   page as `REQS`. Pantry items (citrus, simple syrup, egg white, soda) are never
   requirements, so they can never block a drink.

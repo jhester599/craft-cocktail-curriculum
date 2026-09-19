@@ -315,6 +315,11 @@ body{padding-top:var(--topbar)}
   background:var(--panel-2);border:1px solid var(--line);padding:6px 14px;cursor:pointer;
   min-height:44px;display:inline-flex;align-items:center}
 .filters button[aria-pressed="true"]{color:var(--ink);background:var(--chart);border-color:var(--chart)}
+.filters button b{color:var(--chart);font-weight:700;margin-left:6px}
+.filters button[aria-pressed="true"] b{color:var(--ink)}
+.fnone{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--brass);
+  color:var(--muted);padding:16px 18px;margin:30px 0 0;font-size:15px}
+.fnone a{color:var(--chart)}
 .filters button:hover,.tools button:hover,.tools label:hover{color:var(--chart);border-color:var(--chart)}
 .filters button[aria-pressed="true"]:hover{color:var(--ink)}
 .tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:14px;
@@ -417,6 +422,7 @@ body{padding-top:var(--topbar)}
     <div class="filters" role="group" aria-label="Filter drinks">
       <button data-filter="all" aria-pressed="true">All 52</button>
       <button data-filter="todo" aria-pressed="false">Still to make</button>
+      <button data-filter="can" aria-pressed="false">Can make now <b id="fcan">0</b></button>
       <button data-filter="done" aria-pressed="false">Made</button>
       <button data-filter="top" aria-pressed="false">Rated 4+</button>
       <button data-filter="noted" aria-pressed="false">Has notes</button>
@@ -2044,6 +2050,7 @@ body{padding-top:var(--topbar)}
       </div>
     </article>
   </section>
+  <p class="fnone" id="fnone" hidden></p>
 
   <div class="apxwrap" id="apxwrap">
     <h2>What to buy</h2>
@@ -2821,6 +2828,14 @@ body{padding-top:var(--topbar)}
     return out;
   }
 
+  // Drink 52 asks for "12 oz spirit", not a named bottle, so nothing in the
+  // buying guide can satisfy it and it parses to zero requirements. Zero
+  // requirements trivially means "nothing missing", which had it advertised as
+  // ready to make against a completely empty shelf - the one entry on that list
+  // you definitely could not act on. A recipe we cannot assess is left out
+  // rather than guessed at.
+  function assessable(slug) { return (REQS[slug] || []).length > 0; }
+
   function nameFor(group) {
     var names = [];
     for (var i = 0; i < group.length; i++) names.push(BOTTLES[group[i]] || group[i]);
@@ -2842,7 +2857,7 @@ body{padding-top:var(--topbar)}
     for (var i = 0; i < SLUGS.length; i++) {
       var slug = SLUGS[i];
       var card = document.querySelector('.drink[data-id="' + slug + '"]');
-      if (!card) continue;
+      if (!card || !assessable(slug)) continue;
       var name = card.querySelector("h3") ? card.querySelector("h3").textContent : slug;
       var made = !!(data[slug] && data[slug].made);
       var miss = missingFor(slug);
@@ -2908,8 +2923,29 @@ body{padding-top:var(--topbar)}
     box.innerHTML = html;
   }
 
+  // Why the list is empty, in the words of whichever filter emptied it. A bare
+  // "no matches" would leave someone with an untouched shelf guessing.
+  function emptyWhy() {
+    if (filter === "can") {
+      var owned = 0;
+      for (var k in own) if (own[k]) owned++;
+      if (!owned) {
+        return 'Nothing to show yet. Tick <b>I have this</b> against the bottles ' +
+               'on your shelf in <a href="#apxwrap">the buying guide</a>, and this ' +
+               'becomes the list of drinks you can pour right now.';
+      }
+      return 'Your shelf cannot cover anything new right now. The panel above ' +
+             'lists the drinks that are <b>one bottle short</b>, and which bottle.';
+    }
+    if (filter === "todo") return "Every one of the 52 is marked as made. Well done.";
+    if (filter === "done") return "Nothing marked as made yet.";
+    if (filter === "top") return "Nothing rated 4 or 5 yet.";
+    if (filter === "noted") return "No notes written yet.";
+    return "Nothing matches that filter.";
+  }
+
   function render() {
-    var made = 0, cards = document.querySelectorAll(".drink");
+    var made = 0, can = 0, cards = document.querySelectorAll(".drink");
     for (var i = 0; i < cards.length; i++) {
       var card = cards[i], id = card.dataset.id, r = data[id] || {};
       if (r.made) made++;
@@ -2927,18 +2963,33 @@ body{padding-top:var(--topbar)}
         stars[s].classList.toggle("on", (r.rating || 0) >= s + 1);
       }
 
+      // Same set as the panel's "ready to make now": everything the shelf
+      // covers that you have not poured yet. Someone in a hurry wants the
+      // recipe, and the recipe is on the card rather than in the panel.
+      var canNow = !r.made && assessable(id) && missingFor(id).length === 0;
+      if (canNow) can++;
+
       var show = filter === "all"
         || (filter === "todo" && !r.made)
+        || (filter === "can" && canNow)
         || (filter === "done" && !!r.made)
         || (filter === "top" && (r.rating || 0) >= 4)
         || (filter === "noted" && !!(r.note && r.note.trim()));
       card.classList.toggle("hide", !show);
     }
+    document.getElementById("fcan").textContent = can;
 
-    var groups = document.querySelectorAll(".group");
+    var groups = document.querySelectorAll(".group"), shown = 0;
     for (var g = 0; g < groups.length; g++) {
       var vis = groups[g].querySelectorAll(".drink:not(.hide)").length;
+      shown += vis;
       groups[g].classList.toggle("hide", vis === 0);
+    }
+
+    var none = document.getElementById("fnone");
+    if (none) {
+      none.hidden = shown > 0;
+      if (!shown) none.innerHTML = emptyWhy();
     }
 
     document.getElementById("pcount").textContent = made;
@@ -2993,7 +3044,7 @@ body{padding-top:var(--topbar)}
     var row = box.closest(".brow");
     if (row) row.classList.toggle("have", !!box.checked);
     saveOwn();
-    renderTonight();
+    render();
     scheduleSync();
   });
 

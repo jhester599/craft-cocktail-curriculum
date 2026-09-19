@@ -436,11 +436,25 @@ const v1 = {
        w.document.querySelector('.own input[data-bottle="b-campari"]').checked === false);
   }
 
-  // Clarified Milk Punch asks for "12 oz spirit", so it needs no specific bottle.
+  // Clarified Milk Punch asks for "12 oz spirit", so no named bottle satisfies
+  // it and it parses to zero requirements. This used to assert the opposite -
+  // that zero requirements means always makeable - which had the panel offering
+  // it against a completely empty shelf. "No bottle we can name" is not "no
+  // bottle needed", so a recipe we cannot assess is now left out of both the
+  // panel and the filter rather than guessed at.
+  {
+    const { window: w } = load();
+    ok('an unassessable drink is not offered against an empty shelf',
+       !listed(w).includes('clarified-milk-punch'));
+  }
   {
     const { window: w } = load({ [OWN]: { 'b-campari': true } });
-    ok('a drink with no bottle requirements is always makeable',
-       listed(w).includes('clarified-milk-punch'));
+    ok('nor against a stocked one', !listed(w).includes('clarified-milk-punch'));
+    w.document.querySelector('.filters button[data-filter="can"]').click();
+    ok('and it is not in the "can make now" filter either',
+       !w.document.querySelector('.drink[data-id="clarified-milk-punch"]:not(.hide)'));
+    ok('but it is still on the page under All',
+       !!w.document.querySelector('.drink[data-id="clarified-milk-punch"]'));
   }
 }
 
