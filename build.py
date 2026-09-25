@@ -241,7 +241,7 @@ def cocktail_html(c):
     else:
         vid = '<p class="novideo">No strong video match found. Try searching the drink name on the Educated Barfly or Anders Erickson channels.</p>'
     return """
-    <article class="drink" id="d%d" data-id="%s">
+    <article class="drink" id="drink-%s" data-id="%s">
       <header class="drink-head">
         <span class="num">%02d</span>
         <h3>%s</h3>
@@ -251,7 +251,7 @@ def cocktail_html(c):
       <p class="method">%s</p>
       %s
       <p class="why">%s</p>%s
-    </article>""" % (c["n"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], ings, add_metric(c["method"]), vid, c["note"], track_block(c["slug"]))
+    </article>""" % (c["slug"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], ings, add_metric(c["method"]), vid, c["note"], track_block(c["slug"]))
 
 def group_html(g):
     drinks = "".join(cocktail_html(c) for c in g["cocktails"])
@@ -592,6 +592,28 @@ doc = """<!doctype html>
                 supabase.URL if supabase.enabled() else "",
                 supabase.PUBLISHABLE_KEY if supabase.enabled() else "",
                 supabase.CODE_LENGTH))
+
+# Anchors, checked against the page that is about to be written rather than
+# against intent. The tonight panel spent its whole life linking to "#<slug>"
+# while the cards were numbered "d5", so every one of its 52 links was dead and
+# nothing said so - a dead anchor fails silently in a browser.
+_ids = re.findall(r'(?<![-\w])id="([^"]+)"', doc)
+_dupe = sorted({i for i in _ids if _ids.count(i) > 1})
+assert not _dupe, ("the same id is used twice, so one of the two anchors is\n"
+                   "  unreachable: %s" % ", ".join(_dupe))
+
+# The inline script builds hrefs by concatenation ("#drink-" + slug), which is
+# not an anchor this can resolve, so only the static markup is scanned. Ids
+# stay sourced from the whole document so a static link into script-built
+# markup is not reported dead.
+_targets = set(_ids)
+_static = re.sub(r"<script\b.*?</script>", " ", doc, flags=re.S | re.I)
+_dead = sorted({h for h in re.findall(r'href="#([^"]+)"', _static)
+                if h and h not in _targets})
+assert not _dead, ("link points at an id that is not on the page: %s\n"
+                   "  (links built at runtime by tracker.py are covered by\n"
+                   "  smoke-test.mjs instead, which renders the page first)"
+                   % ", ".join(_dead))
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "index.html")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

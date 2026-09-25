@@ -94,11 +94,13 @@ body{padding-top:var(--topbar)}
 /* ---- start-here link ---- */
 /* Matches the buttons beside it: as a bare text link it did not read as
    something you could press, particularly on a phone. */
-.starthere{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+.starthere,.guidelink{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
   font-size:13.5px;color:var(--muted);min-height:44px;padding:0 13px;
   background:var(--panel-2);border:1px solid var(--line);border-radius:2px}
-.starthere:hover,.starthere:focus-visible{color:var(--chart);border-color:var(--chart)}
-.starthere svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5}
+.starthere:hover,.starthere:focus-visible,
+.guidelink:hover,.guidelink:focus-visible{color:var(--chart);border-color:var(--chart)}
+.starthere svg,.guidelink svg{width:15px;height:15px;flex:none;fill:none;
+  stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
 /* Louder still until there is something saved: a first-time visitor needs it,
    someone who has been logging drinks for a month does not. */
 .starthere.new{color:var(--ink);background:var(--chart);border-color:var(--chart);
@@ -229,6 +231,10 @@ _DASH_HTML = '''
       <a class="starthere" id="starthere" href="start.html">
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v4M8 4.9v.1"/></svg>
         Start here
+      </a>
+      <a class="guidelink" id="guidelink" href="#apxwrap">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.5h3v2.2l1.6 2.6V14a.5.5 0 0 1-.5.5H5.4a.5.5 0 0 1-.5-.5V6.3l1.6-2.6z"/><path d="M4.9 8.6h6.2"/></svg>
+        Buying guide
       </a>
     </div>
     %(sync)s
@@ -553,7 +559,7 @@ TRACK_JS = r'''
       var out = '<ul>';
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        out += '<li><a' + (it.made ? ' class="was"' : '') + ' href="#' + it.slug + '">' +
+        out += '<li><a' + (it.made ? ' class="was"' : '') + ' href="#drink-' + it.slug + '">' +
                (it.made ? '<span class="tick" aria-hidden="true">\u2713</span> ' +
                           '<span class="vh">Already made: </span>' : '') +
                it.name +

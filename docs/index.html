@@ -231,11 +231,13 @@ body{padding-top:var(--topbar)}
 /* ---- start-here link ---- */
 /* Matches the buttons beside it: as a bare text link it did not read as
    something you could press, particularly on a phone. */
-.starthere{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+.starthere,.guidelink{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
   font-size:13.5px;color:var(--muted);min-height:44px;padding:0 13px;
   background:var(--panel-2);border:1px solid var(--line);border-radius:2px}
-.starthere:hover,.starthere:focus-visible{color:var(--chart);border-color:var(--chart)}
-.starthere svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5}
+.starthere:hover,.starthere:focus-visible,
+.guidelink:hover,.guidelink:focus-visible{color:var(--chart);border-color:var(--chart)}
+.starthere svg,.guidelink svg{width:15px;height:15px;flex:none;fill:none;
+  stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
 /* Louder still until there is something saved: a first-time visitor needs it,
    someone who has been logging drinks for a month does not. */
 .starthere.new{color:var(--ink);background:var(--chart);border-color:var(--chart);
@@ -407,6 +409,10 @@ body{padding-top:var(--topbar)}
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v4M8 4.9v.1"/></svg>
         Start here
       </a>
+      <a class="guidelink" id="guidelink" href="#apxwrap">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.5h3v2.2l1.6 2.6V14a.5.5 0 0 1-.5.5H5.4a.5.5 0 0 1-.5-.5V6.3l1.6-2.6z"/><path d="M4.9 8.6h6.2"/></svg>
+        Buying guide
+      </a>
     </div>
     <div class="sync" id="sync">
       <button id="synccode" type="button">My sync code</button>
@@ -471,7 +477,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">A family built on the Last Word's equal-parts template: spirit, herbal liqueur, bittersweet element, citrus. Two of these need Chartreuse, which is the one genuinely hard bottle on the list — substitutions are noted in each build. The other two need none at all.</p>
     </div>
     
-    <article class="drink" id="d1" data-id="last-word">
+    <article class="drink" id="drink-last-word" data-id="last-word">
       <header class="drink-head">
         <span class="num">01</span>
         <h3>Last Word</h3>
@@ -500,7 +506,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d2" data-id="naked-famous">
+    <article class="drink" id="drink-naked-famous" data-id="naked-famous">
       <header class="drink-head">
         <span class="num">02</span>
         <h3>Naked & Famous</h3>
@@ -529,7 +535,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d3" data-id="paper-plane">
+    <article class="drink" id="drink-paper-plane" data-id="paper-plane">
       <header class="drink-head">
         <span class="num">03</span>
         <h3>Paper Plane</h3>
@@ -558,7 +564,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d4" data-id="division-bell">
+    <article class="drink" id="drink-division-bell" data-id="division-bell">
       <header class="drink-head">
         <span class="num">04</span>
         <h3>Division Bell</h3>
@@ -594,7 +600,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Spirit, bitter liqueur, fortified wine. Run the same structure through whiskey, gin, rum and tequila and you get four genuinely different drinks — the clearest demonstration on this list of how much the base carries.</p>
     </div>
     
-    <article class="drink" id="d5" data-id="boulevardier">
+    <article class="drink" id="drink-boulevardier" data-id="boulevardier">
       <header class="drink-head">
         <span class="num">05</span>
         <h3>Boulevardier</h3>
@@ -623,7 +629,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d6" data-id="white-negroni">
+    <article class="drink" id="drink-white-negroni" data-id="white-negroni">
       <header class="drink-head">
         <span class="num">06</span>
         <h3>White Negroni</h3>
@@ -652,7 +658,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d7" data-id="kingston-negroni">
+    <article class="drink" id="drink-kingston-negroni" data-id="kingston-negroni">
       <header class="drink-head">
         <span class="num">07</span>
         <h3>Kingston Negroni</h3>
@@ -681,7 +687,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d8" data-id="rosita">
+    <article class="drink" id="drink-rosita" data-id="rosita">
       <header class="drink-head">
         <span class="num">08</span>
         <h3>Rosita</h3>
@@ -710,7 +716,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d9" data-id="old-pal">
+    <article class="drink" id="drink-old-pal" data-id="old-pal">
       <header class="drink-head">
         <span class="num">09</span>
         <h3>Old Pal</h3>
@@ -746,7 +752,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Drinks where the bitter is the subject rather than the seasoning. This group trains the palate on Italian amari, Fernet, Cynar, and — in one famous case — Angostura used as a base spirit.</p>
     </div>
     
-    <article class="drink" id="d10" data-id="americano">
+    <article class="drink" id="drink-americano" data-id="americano">
       <header class="drink-head">
         <span class="num">10</span>
         <h3>Americano</h3>
@@ -775,7 +781,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d11" data-id="black-manhattan">
+    <article class="drink" id="drink-black-manhattan" data-id="black-manhattan">
       <header class="drink-head">
         <span class="num">11</span>
         <h3>Black Manhattan</h3>
@@ -804,7 +810,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d12" data-id="toronto">
+    <article class="drink" id="drink-toronto" data-id="toronto">
       <header class="drink-head">
         <span class="num">12</span>
         <h3>Toronto</h3>
@@ -833,7 +839,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d13" data-id="trinidad-sour">
+    <article class="drink" id="drink-trinidad-sour" data-id="trinidad-sour">
       <header class="drink-head">
         <span class="num">13</span>
         <h3>Trinidad Sour</h3>
@@ -862,7 +868,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d14" data-id="hanky-panky">
+    <article class="drink" id="drink-hanky-panky" data-id="hanky-panky">
       <header class="drink-head">
         <span class="num">14</span>
         <h3>Hanky Panky</h3>
@@ -891,7 +897,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d15" data-id="bitter-giuseppe">
+    <article class="drink" id="drink-bitter-giuseppe" data-id="bitter-giuseppe">
       <header class="drink-head">
         <span class="num">15</span>
         <h3>Bitter Giuseppe</h3>
@@ -927,7 +933,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Deep, stirred, aromatic whiskey drinks heavy on Bénédictine and Peychaud's, plus two modern sours that have already earned classic status and one Brooklyn-era stirred drink that spawned a family of its own.</p>
     </div>
     
-    <article class="drink" id="d16" data-id="a-la-louisiane">
+    <article class="drink" id="drink-a-la-louisiane" data-id="a-la-louisiane">
       <header class="drink-head">
         <span class="num">16</span>
         <h3>À La Louisiane</h3>
@@ -956,7 +962,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d17" data-id="bentons-old-fashioned">
+    <article class="drink" id="drink-bentons-old-fashioned" data-id="bentons-old-fashioned">
       <header class="drink-head">
         <span class="num">17</span>
         <h3>Benton's Old Fashioned</h3>
@@ -985,7 +991,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d18" data-id="gold-rush">
+    <article class="drink" id="drink-gold-rush" data-id="gold-rush">
       <header class="drink-head">
         <span class="num">18</span>
         <h3>Gold Rush</h3>
@@ -1014,7 +1020,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d19" data-id="penicillin">
+    <article class="drink" id="drink-penicillin" data-id="penicillin">
       <header class="drink-head">
         <span class="num">19</span>
         <h3>Penicillin</h3>
@@ -1043,7 +1049,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d20" data-id="red-hook">
+    <article class="drink" id="drink-red-hook" data-id="red-hook">
       <header class="drink-head">
         <span class="num">20</span>
         <h3>Red Hook</h3>
@@ -1079,7 +1085,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Pre-Prohibition elegance plus two moderns, covering gin's full range from floral to herbaceous to the most demanding shake in the book.</p>
     </div>
     
-    <article class="drink" id="d21" data-id="corpse-reviver-no-2">
+    <article class="drink" id="drink-corpse-reviver-no-2" data-id="corpse-reviver-no-2">
       <header class="drink-head">
         <span class="num">21</span>
         <h3>Corpse Reviver No. 2</h3>
@@ -1108,7 +1114,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d22" data-id="bees-knees">
+    <article class="drink" id="drink-bees-knees" data-id="bees-knees">
       <header class="drink-head">
         <span class="num">22</span>
         <h3>Bee's Knees</h3>
@@ -1137,7 +1143,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d23" data-id="clover-club">
+    <article class="drink" id="drink-clover-club" data-id="clover-club">
       <header class="drink-head">
         <span class="num">23</span>
         <h3>Clover Club</h3>
@@ -1166,7 +1172,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d24" data-id="ramos-gin-fizz">
+    <article class="drink" id="drink-ramos-gin-fizz" data-id="ramos-gin-fizz">
       <header class="drink-head">
         <span class="num">24</span>
         <h3>Ramos Gin Fizz</h3>
@@ -1195,7 +1201,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d25" data-id="gin-basil-smash">
+    <article class="drink" id="drink-gin-basil-smash" data-id="gin-basil-smash">
       <header class="drink-head">
         <span class="num">25</span>
         <h3>Gin Basil Smash</h3>
@@ -1224,7 +1230,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d26" data-id="aviation">
+    <article class="drink" id="drink-aviation" data-id="aviation">
       <header class="drink-head">
         <span class="num">26</span>
         <h3>Aviation</h3>
@@ -1260,7 +1266,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">The most ingredient-hungry group on the list: orgeat, falernum, allspice dram, demerara syrup and a lot of crushed ice. It is also a tour of rum from Jamaica to Barbados to Martinique, ending with a drink that hands the base over to Campari.</p>
     </div>
     
-    <article class="drink" id="d27" data-id="jungle-bird">
+    <article class="drink" id="drink-jungle-bird" data-id="jungle-bird">
       <header class="drink-head">
         <span class="num">27</span>
         <h3>Jungle Bird</h3>
@@ -1289,7 +1295,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d28" data-id="mai-tai">
+    <article class="drink" id="drink-mai-tai" data-id="mai-tai">
       <header class="drink-head">
         <span class="num">28</span>
         <h3>Mai Tai</h3>
@@ -1318,7 +1324,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d29" data-id="three-dots-and-a-dash">
+    <article class="drink" id="drink-three-dots-and-a-dash" data-id="three-dots-and-a-dash">
       <header class="drink-head">
         <span class="num">29</span>
         <h3>Three Dots and a Dash</h3>
@@ -1347,7 +1353,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d30" data-id="painkiller">
+    <article class="drink" id="drink-painkiller" data-id="painkiller">
       <header class="drink-head">
         <span class="num">30</span>
         <h3>Painkiller</h3>
@@ -1376,7 +1382,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d31" data-id="hemingway-daiquiri">
+    <article class="drink" id="drink-hemingway-daiquiri" data-id="hemingway-daiquiri">
       <header class="drink-head">
         <span class="num">31</span>
         <h3>Hemingway Daiquiri</h3>
@@ -1405,7 +1411,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d32" data-id="corn-n-oil">
+    <article class="drink" id="drink-corn-n-oil" data-id="corn-n-oil">
       <header class="drink-head">
         <span class="num">32</span>
         <h3>Corn 'n' Oil</h3>
@@ -1434,7 +1440,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d33" data-id="bitter-mai-tai">
+    <article class="drink" id="drink-bitter-mai-tai" data-id="bitter-mai-tai">
       <header class="drink-head">
         <span class="num">33</span>
         <h3>Bitter Mai Tai</h3>
@@ -1470,7 +1476,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Everything past the Margarita — an Old Fashioned riff, a Campari sour, and two grapefruit-driven refreshers that belong in high summer.</p>
     </div>
     
-    <article class="drink" id="d34" data-id="oaxaca-old-fashioned">
+    <article class="drink" id="drink-oaxaca-old-fashioned" data-id="oaxaca-old-fashioned">
       <header class="drink-head">
         <span class="num">34</span>
         <h3>Oaxaca Old Fashioned</h3>
@@ -1499,7 +1505,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d35" data-id="siesta">
+    <article class="drink" id="drink-siesta" data-id="siesta">
       <header class="drink-head">
         <span class="num">35</span>
         <h3>Siesta</h3>
@@ -1528,7 +1534,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d36" data-id="paloma">
+    <article class="drink" id="drink-paloma" data-id="paloma">
       <header class="drink-head">
         <span class="num">36</span>
         <h3>Paloma</h3>
@@ -1557,7 +1563,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d37" data-id="tommys-margarita">
+    <article class="drink" id="drink-tommys-margarita" data-id="tommys-margarita">
       <header class="drink-head">
         <span class="num">37</span>
         <h3>Tommy's Margarita</h3>
@@ -1593,7 +1599,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">The oldest DNA in the book — the drinks American bartending was built on before whiskey took over — plus one South American classic.</p>
     </div>
     
-    <article class="drink" id="d38" data-id="vieux-carre">
+    <article class="drink" id="drink-vieux-carre" data-id="vieux-carre">
       <header class="drink-head">
         <span class="num">38</span>
         <h3>Vieux Carré</h3>
@@ -1622,7 +1628,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d39" data-id="brandy-crusta">
+    <article class="drink" id="drink-brandy-crusta" data-id="brandy-crusta">
       <header class="drink-head">
         <span class="num">39</span>
         <h3>Brandy Crusta</h3>
@@ -1651,7 +1657,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d40" data-id="japanese-cocktail">
+    <article class="drink" id="drink-japanese-cocktail" data-id="japanese-cocktail">
       <header class="drink-head">
         <span class="num">40</span>
         <h3>Japanese Cocktail</h3>
@@ -1680,7 +1686,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d41" data-id="saratoga">
+    <article class="drink" id="drink-saratoga" data-id="saratoga">
       <header class="drink-head">
         <span class="num">41</span>
         <h3>Saratoga</h3>
@@ -1709,7 +1715,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d42" data-id="pisco-sour">
+    <article class="drink" id="drink-pisco-sour" data-id="pisco-sour">
       <header class="drink-head">
         <span class="num">42</span>
         <h3>Pisco Sour</h3>
@@ -1745,7 +1751,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Autumnal and communal. An apple-brandy sour, a spirit-forward reviver, and one large-format punch for when there is a crowd.</p>
     </div>
     
-    <article class="drink" id="d43" data-id="jack-rose">
+    <article class="drink" id="drink-jack-rose" data-id="jack-rose">
       <header class="drink-head">
         <span class="num">43</span>
         <h3>Jack Rose</h3>
@@ -1774,7 +1780,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d44" data-id="corpse-reviver-no-1">
+    <article class="drink" id="drink-corpse-reviver-no-1" data-id="corpse-reviver-no-1">
       <header class="drink-head">
         <span class="num">44</span>
         <h3>Corpse Reviver No. 1</h3>
@@ -1803,7 +1809,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d45" data-id="fish-house-punch">
+    <article class="drink" id="drink-fish-house-punch" data-id="fish-house-punch">
       <header class="drink-head">
         <span class="num">45</span>
         <h3>Fish House Punch</h3>
@@ -1839,7 +1845,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">Vodka's craft credentials. Two Dick Bradsell-era London classics and three drinks that are usually made badly and are excellent when they aren't.</p>
     </div>
     
-    <article class="drink" id="d46" data-id="espresso-martini">
+    <article class="drink" id="drink-espresso-martini" data-id="espresso-martini">
       <header class="drink-head">
         <span class="num">46</span>
         <h3>Espresso Martini</h3>
@@ -1868,7 +1874,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d47" data-id="vesper">
+    <article class="drink" id="drink-vesper" data-id="vesper">
       <header class="drink-head">
         <span class="num">47</span>
         <h3>Vesper</h3>
@@ -1897,7 +1903,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d48" data-id="moscow-mule">
+    <article class="drink" id="drink-moscow-mule" data-id="moscow-mule">
       <header class="drink-head">
         <span class="num">48</span>
         <h3>Moscow Mule</h3>
@@ -1926,7 +1932,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d49" data-id="bloody-mary">
+    <article class="drink" id="drink-bloody-mary" data-id="bloody-mary">
       <header class="drink-head">
         <span class="num">49</span>
         <h3>Bloody Mary</h3>
@@ -1955,7 +1961,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d50" data-id="cosmopolitan">
+    <article class="drink" id="drink-cosmopolitan" data-id="cosmopolitan">
       <header class="drink-head">
         <span class="num">50</span>
         <h3>Cosmopolitan</h3>
@@ -1991,7 +1997,7 @@ body{padding-top:var(--topbar)}
       <p class="group-intro">The capstone. Two drinks chosen for the skills they teach — swizzling, and floating something so it stays floated — rather than the flavours they deliver, though both deliver. Each is finished at the surface: one with a cap of Angostura, the other with cream you drink the coffee through.</p>
     </div>
     
-    <article class="drink" id="d51" data-id="queens-park-swizzle">
+    <article class="drink" id="drink-queens-park-swizzle" data-id="queens-park-swizzle">
       <header class="drink-head">
         <span class="num">51</span>
         <h3>Queen's Park Swizzle</h3>
@@ -2020,7 +2026,7 @@ body{padding-top:var(--topbar)}
           placeholder="Notes: what you changed, whose spec you liked, make it again?"></textarea>
       </div>
     </article>
-    <article class="drink" id="d52" data-id="irish-coffee">
+    <article class="drink" id="drink-irish-coffee" data-id="irish-coffee">
       <header class="drink-head">
         <span class="num">52</span>
         <h3>Irish Coffee</h3>
@@ -2896,7 +2902,7 @@ body{padding-top:var(--topbar)}
       var out = '<ul>';
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        out += '<li><a' + (it.made ? ' class="was"' : '') + ' href="#' + it.slug + '">' +
+        out += '<li><a' + (it.made ? ' class="was"' : '') + ' href="#drink-' + it.slug + '">' +
                (it.made ? '<span class="tick" aria-hidden="true">\u2713</span> ' +
                           '<span class="vh">Already made: </span>' : '') +
                it.name +

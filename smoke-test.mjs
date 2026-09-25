@@ -238,8 +238,10 @@ const v1 = {
     return box;
   };
   const panelText = w => w.document.getElementById('tonight').textContent;
-  const listed = w => [...w.document.querySelectorAll('#tonight a[href^="#"]')]
-    .map(a => a.getAttribute('href').slice(1));
+  // Panel links are "#drink-<slug>"; the cards' ids carry that prefix because
+  // one group id is already spelled like a drink slug.
+  const listed = w => [...w.document.querySelectorAll('#tonight a[href^="#drink-"]')]
+    .map(a => a.getAttribute('href').replace('#drink-', ''));
 
   {
     const { window: w } = load();
@@ -296,7 +298,7 @@ const v1 = {
     const inGroup = (label) => {
       const g = group(label);
       return g ? [...g.querySelectorAll('a[href^="#"]')]
-                   .map(a => a.getAttribute('href').slice(1)) : [];
+                   .map(a => a.getAttribute('href').replace('#drink-', '')) : [];
     };
     const countIn = (label) => {
       const g = group(label);
@@ -320,7 +322,7 @@ const v1 = {
     ok('it is not lost - it moves to "made before, ready again"',
        inGroup('made before, ready again').includes('boulevardier'));
     ok('the moved drink is marked as already made',
-       !!w.document.querySelector('#tonight a.was[href="#boulevardier"]'));
+       !!w.document.querySelector('#tonight a.was[href="#drink-boulevardier"]'));
     ok('and carries hidden text for a screen reader',
        /Already made/.test((w.document.querySelector('#tonight a.was') || {}).textContent || ''));
 
@@ -340,7 +342,7 @@ const v1 = {
     w.document.querySelector('.drink[data-id="last-word"] .mk').click();
     const shortLinks = [...w.document.querySelectorAll('#tonight a')]
       .filter(a => a.querySelector('.short'));
-    const lw = shortLinks.find(a => a.getAttribute('href') === '#last-word');
+    const lw = shortLinks.find(a => a.getAttribute('href') === '#drink-last-word');
     ok('a made drink is still listed as one bottle short', !!lw);
     ok('and is marked rather than dropped', !!lw && lw.classList.contains('was'));
     ok('unmade short drinks sort above made ones',
@@ -356,9 +358,9 @@ const v1 = {
     tick(w, 'b-sweet-vermouth');
     tick(w, 'b-campari');
     tick(w, 'b-rye-100-proof');
-    const ready = [...w.document.querySelectorAll('#tonight a[href^="#"]')]
+    const ready = [...w.document.querySelectorAll('#tonight a[href^="#drink-"]')]
       .filter(a => !a.querySelector('.short'))
-      .map(a => a.getAttribute('href').slice(1));
+      .map(a => a.getAttribute('href').replace('#drink-', ''));
     for (const slug of ready) {
       w.document.querySelector(`.drink[data-id="${slug}"] .mk`).click();
     }
@@ -434,6 +436,44 @@ const v1 = {
     ok('reset clears the shelf too', !w.localStorage.getItem(OWN_KEY));
     ok('reset unticks the checkboxes',
        w.document.querySelector('.own input[data-bottle="b-campari"]').checked === false);
+  }
+
+  // Every link the panel builds must land on a card. These are assembled at
+  // runtime, so build.py's anchor check cannot see them - and for the panel's
+  // whole life they pointed at "#<slug>" while the cards were numbered "d5",
+  // so all 52 were dead and clicking one did nothing.
+  {
+    const { window: w } = load();
+    const tick2 = (id) => tick(w, id);
+    ['b-sweet-vermouth', 'b-campari', 'b-rye-100-proof', 'b-london-dry-gin',
+     'b-green-chartreuse', 'b-maraschino-liqueur'].forEach(tick2);
+
+    const anchors = [...w.document.querySelectorAll('#tonight a[href^="#"]')];
+    ok('the panel actually lists something to check', anchors.length > 3);
+    const broken = anchors.filter(a =>
+      !w.document.getElementById(a.getAttribute('href').slice(1)));
+    ok('every tonight-panel link lands on a real element', broken.length === 0);
+    ok('and they land on the drink card, not just anything',
+       anchors.every(a => {
+         const el = w.document.getElementById(a.getAttribute('href').slice(1));
+         return el && el.classList.contains('drink');
+       }));
+
+    // Made drinks move to their own group; their links have to work too.
+    w.document.querySelector('.drink[data-id="boulevardier"] .mk').click();
+    const again = w.document.querySelector('#tonight a.was');
+    ok('a "made before" link resolves as well',
+       !!again && !!w.document.getElementById(again.getAttribute('href').slice(1)));
+  }
+
+  // A shortcut to the buying guide, next to the progress bar.
+  {
+    const link = d.getElementById('guidelink');
+    ok('the buying-guide shortcut exists', !!link);
+    ok('and it points at the buying guide',
+       !!link && !!d.getElementById(link.getAttribute('href').slice(1)));
+    ok('it sits in the dashboard, by the progress bar',
+       !!link && !!link.closest('#dash'));
   }
 
   // The tonight panel and the "can make now" filter both read "no missing
