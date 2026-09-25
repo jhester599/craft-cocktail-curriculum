@@ -82,7 +82,7 @@ The build is deterministic: same inputs, byte-identical output, no timestamps.
 
 - `check-videos.mjs` resolves all 52 video links through YouTube's oEmbed endpoint,
   which 404s on a deleted or private video and reports the channel a video really
-  belongs to.
+  belongs to. A drink with no link at all is listed, not treated as a failure.
 - A dead link, or one that resolves to a channel the page does not claim, opens an
   issue labelled `video-links` — or comments on the existing one, so a persistent
   problem does not produce a new issue every month. The issue closes itself once

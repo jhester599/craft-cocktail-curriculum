@@ -102,7 +102,7 @@ const v1 = {
   ok('v1 migrated to v2 on first load', Object.keys(out).length === 3);
   ok('numeric 1 maps to first drink by order', !!out['last-word'] && out['last-word'].rating === 5);
   ok('numeric 9 maps to ninth drink by order', !!out['old-pal'] && out['old-pal'].date === 'Sep 2, 2026');
-  ok('numeric 52 maps to last drink by order', !!out['clarified-milk-punch'] && out['clarified-milk-punch'].note === 'showpiece');
+  ok('numeric 52 maps to last drink by order', !!out['irish-coffee'] && out['irish-coffee'].note === 'showpiece');
   ok('notes survive the move', out['last-word'].note === 'the blueprint');
   ok('no numeric keys remain', !Object.keys(out).some(k => /^\d+$/.test(k)));
 
@@ -154,7 +154,7 @@ const v1 = {
   w.FileReader = realFR;
 
   const out = JSON.parse(w.localStorage.getItem(KEY) || '{}');
-  ok('v1 export imports onto slugs', !!out['last-word'] && !!out['clarified-milk-punch']);
+  ok('v1 export imports onto slugs', !!out['last-word'] && !!out['irish-coffee']);
   ok('imported note lands on right drink', out['last-word'].note === 'the blueprint');
   ok('import writes no numeric keys', !Object.keys(out).some(k => /^\d+$/.test(k)));
 }
@@ -436,25 +436,20 @@ const v1 = {
        w.document.querySelector('.own input[data-bottle="b-campari"]').checked === false);
   }
 
-  // Clarified Milk Punch asks for "12 oz spirit", so no named bottle satisfies
-  // it and it parses to zero requirements. This used to assert the opposite -
-  // that zero requirements means always makeable - which had the panel offering
-  // it against a completely empty shelf. "No bottle we can name" is not "no
-  // bottle needed", so a recipe we cannot assess is now left out of both the
-  // panel and the filter rather than guessed at.
+  // The tonight panel and the "can make now" filter both read "no missing
+  // bottles" as makeable, so a recipe naming no bottle at all would be offered
+  // against an empty shelf. The old Clarified Milk Punch ("12 oz spirit") did
+  // exactly that. build.py now refuses to ship such a recipe; this is the same
+  // invariant checked against the page that actually shipped, since the runtime
+  // guard in the tracker is only reachable if one ever slips through.
   {
-    const { window: w } = load();
-    ok('an unassessable drink is not offered against an empty shelf',
-       !listed(w).includes('clarified-milk-punch'));
-  }
-  {
-    const { window: w } = load({ [OWN]: { 'b-campari': true } });
-    ok('nor against a stocked one', !listed(w).includes('clarified-milk-punch'));
-    w.document.querySelector('.filters button[data-filter="can"]').click();
-    ok('and it is not in the "can make now" filter either',
-       !w.document.querySelector('.drink[data-id="clarified-milk-punch"]:not(.hide)'));
-    ok('but it is still on the page under All',
-       !!w.document.querySelector('.drink[data-id="clarified-milk-punch"]'));
+    const reqs = JSON.parse(html.match(/REQS\s*=\s*(\{[\s\S]*?\});/)[1]);
+    const slugs = [...d.querySelectorAll('.drink')].map(c => c.dataset.id);
+    const vague = slugs.filter(s => !(reqs[s] || []).length);
+    ok('every drink names at least one bottle from the buying guide',
+       vague.length === 0);
+    ok('and every drink on the page has a requirements entry',
+       slugs.every(s => s in reqs));
   }
 }
 

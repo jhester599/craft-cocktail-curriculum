@@ -89,7 +89,7 @@ own section with quantities, yield, and fridge life, cross-linked from the recip
 
 ### 7. Batch and scaling calculator
 Multiply any spec by N with output in ml, and a batching mode that adds a water allowance in
-place of shaking dilution. Directly useful for the Fish House Punch and the Clarified Milk Punch,
+place of shaking dilution. Directly useful for the Fish House Punch,
 and for making two of anything at once.
 
 ### 8. Offline support

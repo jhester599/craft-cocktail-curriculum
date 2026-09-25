@@ -425,8 +425,8 @@ GROUPS = [
     },
     {
         "id": "technique",
-        "title": "Swizzles, Clarified & Modern Technique",
-        "intro": "The capstone. Two drinks chosen for the skills they teach — swizzling and milk clarification — rather than the flavours they deliver, though both deliver.",
+        "title": "Swizzles, Floats & Finishing Technique",
+        "intro": "The capstone. Two drinks chosen for the skills they teach — swizzling, and floating something so it stays floated — rather than the flavours they deliver, though both deliver. Each is finished at the surface: one with a cap of Angostura, the other with cream you drink the coffee through.",
         "cocktails": [
             {
                 "n": 30, "name": "Queen's Park Swizzle", "family": "Tiki", "spirit": "Rum",
@@ -436,11 +436,11 @@ GROUPS = [
                 "note": "Trinidad's signature swizzle. The floated Angostura is both the aroma and the visual.",
             },
             {
-                "n": 52, "name": "Clarified Milk Punch", "family": "Modern technique", "spirit": "Vodka / Rum / Brandy",
-                "ing": ["12 oz spirit", "8 oz citrus juice", "6 oz sugar or syrup", "spices or tea to taste", "8 oz hot whole milk"],
-                "method": "Stir the acidic mixture into the hot milk — never the reverse. Rest 2–24 hours refrigerated, then gravity-filter through a coffee filter until crystal clear. Serve 3–5 oz over a large cube.",
-                "video": "https://www.youtube.com/watch?v=ZZ1ffluktqM", "channel": "Cocktail Chemistry",
-                "note": "An eighteenth-century English technique producing a silky, shelf-stable, completely transparent punch. The showpiece to end the year on.",
+                "n": 52, "name": "Irish Coffee", "family": "Hot drinks", "spirit": "Irish whiskey",
+                "ing": ["1½ oz Irish whiskey", "4 oz hot coffee", "2 tsp brown sugar", "1 oz lightly whipped heavy cream"],
+                "method": "Warm the glass with hot water and tip it out. Sugar and coffee first, stirred until the sugar has completely gone, then the whiskey. Whip the cream only until it thickens and will still just pour — stop well before it holds a peak — and pour it over the back of a spoon so it settles on top. Do not stir after that. Drink the coffee through the cream.",
+                "video": "https://www.youtube.com/watch?v=LiEZu1STyIA", "channel": "The Educated Barfly",
+                "note": "Joe Sheridan improvised it at the Foynes flying-boat terminal in 1943 for passengers off a transatlantic flight that had turned back. Stanton Delaplane carried it to the Buena Vista in San Francisco in 1952, where they have poured it ever since. The whole drink is the cream: whipped a moment too long it sits there like a lid, a moment too short and it sinks.",
             },
         ],
     },
@@ -580,6 +580,7 @@ APPENDIX = [
             ("Rye, 100 proof", "Rittenhouse Rye Bottled-in-Bond", ["Wild Turkey 101 Rye", "Old Forester Rye"], "Black Manhattan, Toronto, Old Pal, À La Louisiane, Red Hook, Vieux Carré, Saratoga, and the rye half of the Boulevardier and Trinidad Sour."),
             ("Bourbon", "Old Forester 100 Proof", ["Wild Turkey 101", "Elijah Craig Small Batch"], "Paper Plane, Gold Rush, Benton's, Boulevardier."),
             ("Blended Scotch", "Monkey Shoulder", ["Compass Box Great King Street", "The Famous Grouse"], "Penicillin base."),
+            ("Irish whiskey", "Powers Gold Label", ["Tullamore D.E.W.", "Jameson"], "Irish Coffee. Powers is pot-still and heavy enough to stay audible under coffee and cream; the Buena Vista pours Tullamore D.E.W., which is softer. Jameson works and is everywhere."),
             ("Islay single malt", "Laphroaig 10", ["Ardbeg 10", "Lagavulin 16"], "Penicillin float. Lagavulin is the original spec but expensive to pour a quarter ounce of."),
         ],
     },
@@ -629,5 +630,5 @@ WAVES = [
       "Velvet Falernum", "St. Elizabeth Allspice Dram", "Hamilton 86 Demerara", "Rhum J.M VSOP",
       "Pusser's Rum", "Laird's Bottled-in-Bond Apple Brandy", "Campo de Encanto Pisco",
       "Rothman &amp; Winter Orchard Peach", "Laphroaig 10", "Mr Black Coffee Liqueur",
-      "Faccia Brutto Centerbe", "Strega", "Small Hand Foods Grenadine"]),
+      "Faccia Brutto Centerbe", "Strega", "Small Hand Foods Grenadine", "Powers Gold Label"]),
 ]
