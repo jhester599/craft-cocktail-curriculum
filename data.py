@@ -439,7 +439,7 @@ GROUPS = [
                 "n": 52, "name": "Irish Coffee", "family": "Hot drinks", "spirit": "Irish whiskey",
                 "ing": ["1½ oz Irish whiskey", "4 oz hot coffee", "2 tsp brown sugar", "1 oz lightly whipped heavy cream"],
                 "method": "Warm the glass with hot water and tip it out. Sugar and coffee first, stirred until the sugar has completely gone, then the whiskey. Whip the cream only until it thickens and will still just pour — stop well before it holds a peak — and pour it over the back of a spoon so it settles on top. Do not stir after that. Drink the coffee through the cream.",
-                "video": "", "channel": "",
+                "video": "https://www.youtube.com/watch?v=LiEZu1STyIA", "channel": "The Educated Barfly",
                 "note": "Joe Sheridan improvised it at the Foynes flying-boat terminal in 1943 for passengers off a transatlantic flight that had turned back. Stanton Delaplane carried it to the Buena Vista in San Francisco in 1952, where they have poured it ever since. The whole drink is the cream: whipped a moment too long it sits there like a lid, a moment too short and it sinks.",
             },
         ],

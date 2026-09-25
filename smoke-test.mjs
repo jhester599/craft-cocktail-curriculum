@@ -211,18 +211,8 @@ const v1 = {
 {
   const cards = [...d.querySelectorAll('.drink')];
   const vids = cards.map(c => c.querySelector('a.video'));
-  // Irish Coffee replaced the Clarified Milk Punch and has no link yet - the
-  // build environment cannot reach YouTube, so picking one unseen would be a
-  // guess. Named explicitly rather than counted, so the other 51 stay covered
-  // and this keeps passing once the link lands.
-  const PENDING_VIDEO = ['Irish Coffee'];
-  const noVideo = cards.filter(c => !c.querySelector('a.video'))
-                       .map(c => c.querySelector('h3').textContent);
-  ok('every drink has a video link, bar the one awaiting a URL',
-     noVideo.every(n => PENDING_VIDEO.includes(n)));
-  ok('no unexplained "no strong match" notes remain',
-     d.querySelectorAll('.novideo').length === noVideo.length &&
-     noVideo.length <= PENDING_VIDEO.length);
+  ok('every drink has a video link', vids.every(Boolean));
+  ok('no "no strong match" notes remain', d.querySelectorAll('.novideo').length === 0);
   ok('every video href is a youtube url',
      vids.filter(Boolean).every(a => /^https:\/\/www\.youtube\.com\//.test(a.getAttribute('href'))));
   ok('every video link names its channel',

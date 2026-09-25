@@ -80,8 +80,7 @@ The build is deterministic: same inputs, byte-identical output, no timestamps.
 
 `.github/workflows/video-links.yml` runs on the 1st of each month, and on demand:
 
-- `check-videos.mjs` resolves every video link on the page through YouTube's oEmbed
-  endpoint (51 of 52 today — Irish Coffee is still waiting on a URL),
+- `check-videos.mjs` resolves all 52 video links through YouTube's oEmbed endpoint,
   which 404s on a deleted or private video and reports the channel a video really
   belongs to. A drink with no link at all is listed, not treated as a failure.
 - A dead link, or one that resolves to a channel the page does not claim, opens an
