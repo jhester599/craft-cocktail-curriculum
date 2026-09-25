@@ -105,6 +105,7 @@ MAP = [
     ("white rum", "White / light rum"),
 
     # --- whiskey -------------------------------------------------------------
+    ("Irish whiskey", "Irish whiskey"),
     ("rye whiskey", "Rye, 100 proof"),
     ("bacon-fat-washed bourbon", "Bourbon"),
     ("bourbon", "Bourbon"),
@@ -140,12 +141,12 @@ PANTRY = [
     "fresh lime or lemon juice", "fresh lemon or lime juice",
     "fresh lime juice", "fresh lemon juice", "fresh grapefruit juice",
     "fresh orange juice", "lime juice", "lemon juice", "grapefruit juice",
-    "orange juice", "pineapple juice", "cranberry juice", "citrus juice",
-    "demerara or simple syrup", "simple syrup", "sugar or syrup", "agave nectar",
+    "orange juice", "pineapple juice", "cranberry juice",
+    "demerara or simple syrup", "simple syrup", "agave nectar",
     "Grade B maple syrup", "maple syrup", "grenadine (homemade pomegranate)",
     "grenadine",
-    "egg white", "heavy cream", "hot whole milk", "whole milk", "milk",
-    "fresh hot espresso", "espresso",
+    "egg white", "lightly whipped heavy cream", "heavy cream",
+    "fresh hot espresso", "espresso", "coffee", "brown sugar",
     "soda water to top", "soda water", "soda to top", "soda",
     "water or soda", "water",
     "large handful fresh basil", "fresh basil", "basil",
@@ -153,7 +154,5 @@ PANTRY = [
     "Worcestershire", "hot sauce",
     "pinch horseradish, salt, pepper, celery salt", "horseradish",
     "pinch of salt", "salt",
-    "spices or tea to taste", "spices", "tea",
-    "spirit",            # Clarified Milk Punch: whatever you have
     "cherry", "cherries",
 ]

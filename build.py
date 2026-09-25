@@ -355,14 +355,24 @@ _ghosts = sorted({i for _g in GROUPS for _c in _g["cocktails"]
                   for grp in drink_requirements(_c) for i in grp} - _items)
 assert not _ghosts, "ingredients.MAP points at non-existent appendix items: %s" % _ghosts
 
+# A recipe naming no bottle at all cannot be checked against a shelf, and zero
+# requirements reads as "nothing missing" to anything that asks - which had the
+# tonight panel offering a drink against an empty shelf. The old Clarified Milk
+# Punch ("12 oz spirit") was the only one, and it is why this is here: a recipe
+# written that loosely should fail the build rather than mislead the page.
+_vague = sorted(s for s, groups in REQS.items() if not groups)
+assert not _vague, ("recipe names no bottle from the buying guide, so no shelf can\n"
+                    "  satisfy it - name the spirit, or add it to ingredients.MAP: %s"
+                    % ", ".join(_vague))
+
 # id -> display name, for the ownership checkboxes and the "one short" message.
 BOTTLES = {slugify(i): i for i in sorted(_items)}
 
 nav = "".join('<a href="#%s">%s</a>' % (g["id"], g["title"]) for g in GROUPS)
 apx_nav = "".join('<a href="#%s">%s</a>' % (s["id"], s["title"]) for s in APPENDIX)
 
-TALLY = [("Whiskey", 8), ("Gin", 8), ("Rum", 8), ("Brandy &amp; cognac", 8),
-         ("Agave", 7), ("Amaro &amp; bitter", 7), ("Vodka", 6)]
+TALLY = [("Whiskey", 9), ("Gin", 8), ("Rum", 8), ("Brandy &amp; cognac", 8),
+         ("Agave", 7), ("Amaro &amp; bitter", 7), ("Vodka", 5)]
 tally_html = "".join('<li><span class="tn">%d</span>%s</li>' % (n, k) for k, n in TALLY)
 
 CSS = """

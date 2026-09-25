@@ -104,6 +104,7 @@ CATEGORIES = {
     "Rye, 100 proof": "/liquor/whiskey?productsubtype=rye&producttype=american",
     "Bourbon": "/liquor/whiskey?productsubtype=bourbon&producttype=american",
     "Blended Scotch": "/liquor/whiskey?producttype=scotch",
+    "Irish whiskey": "/liquor/whiskey?producttype=irish",
     "Islay single malt": "/liquor/whiskey?productsubtype=single-malt&producttype=scotch",
 
     # Brandy
@@ -165,6 +166,7 @@ WAVE_ITEMS = {
     "Campo de Encanto Pisco": "Pisco",
     "Rothman & Winter Orchard Peach": "Peach brandy",
     "Laphroaig 10": "Islay single malt",
+    "Powers Gold Label": "Irish whiskey",
     "Mr Black Coffee Liqueur": "Coffee liqueur",
     "Faccia Brutto Centerbe": "Green Chartreuse",
     "Strega": "Yellow Chartreuse",
