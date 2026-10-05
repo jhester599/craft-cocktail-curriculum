@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """Checks keepalive.py's branching without touching the network.
 
-The interesting case is a project that is asleep: the first requests fail while
-it wakes, and the retry is the mechanism that wakes it rather than politeness.
-A version that gave up on the first timeout would report a healthy project as
-broken every time it had been idle.
+Two things matter. Each run must make several calls, because Supabase judges
+activity by volume over a week - one call every few days was not enough and the
+project paused with every ping succeeding. And a transient failure (a timeout,
+a 502) must be retried rather than reported, or a healthy project would raise a
+false alarm every time the network hiccupped.
 
 Run: python3 keepalive.test.py
 """
@@ -48,6 +49,7 @@ def run(urlopen, configured=True):
     try:
         with mock.patch.object(supabase, "URL", supabase.URL if configured else ""), \
              mock.patch.object(keepalive, "BACKOFF", 0), \
+             mock.patch.object(keepalive, "SPACING", 0), \
              mock.patch("urllib.request.urlopen", urlopen):
             return keepalive.main(), buf.getvalue()
     finally:
@@ -69,9 +71,18 @@ def unreachable(*a, **k):
     raise TimeoutError("timed out")
 
 
-code, out = run(healthy)
+counted = {"n": 0}
+
+
+def counting(*a, **k):
+    counted["n"] += 1
+    return Resp(200, b"ok:0")
+
+
+code, out = run(counting)
 check("a healthy project exits 0", code == 0)
 check("and says it is awake", "Awake" in out)
+check("every run makes several calls, not one", counted["n"] == keepalive.PINGS > 1)
 
 code, out = run(healthy, configured=False)
 check("an unconfigured project is not a failure", code == 0)
@@ -80,16 +91,17 @@ check("and says there is nothing to keep awake", "nothing to keep awake" in out)
 calls = {"n": 0}
 
 
-def wakes_on_third(*a, **k):
+def recovers_on_third(*a, **k):
     calls["n"] += 1
     if calls["n"] < 3:
         raise TimeoutError("timed out")
     return Resp(200, b"ok:0")
 
 
-code, out = run(wakes_on_third)
-check("a sleeping project is woken by the retries", code == 0)
-check("and the wake is reported, not hidden", "attempts" in out)
+code, out = run(recovers_on_third)
+check("a transient failure is retried, not reported", code == 0)
+check("and the retry is mentioned, not hidden", "after 3 attempts" in out)
+check("and the remaining calls still happen", calls["n"] == 2 + keepalive.PINGS)
 
 code, out = run(unauthorized)
 check("a rejected request fails", code == 1)
@@ -103,6 +115,7 @@ check("and it did retry", out.count("Attempt") == keepalive.ATTEMPTS)
 code, out = run(unreachable)
 check("an unreachable project fails", code == 1)
 check("and names the project it could not reach", supabase.URL in out)
+check("and says a paused project needs restoring by hand", "dashboard" in out)
 
 print("\n%d FAILURES" % fail if fail else "\nAll checks passed")
 sys.exit(1 if fail else 0)

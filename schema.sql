@@ -81,8 +81,8 @@ begin
 end;
 $$;
 
--- Touched by the scheduled keep-alive so the free-tier project does not pause
--- after 7 days of inactivity. Reads a real row so it counts as database work.
+-- Called by the scheduled keep-alive so the free-tier project does not pause
+-- for lack of weekly database activity. Reads a real row so it counts as database work.
 create or replace function public.ping()
 returns text
 language sql

@@ -105,16 +105,18 @@ Separate tracks so everyone keeps their own ratings and notes, with a toggle in 
 and a combined view. Cheap version of the shared-state problem below.
 
 ### 9b. Keep the Supabase project awake
-**Done.** `.github/workflows/keepalive.yml` runs `keepalive.py` every three days, well inside the
-7-day pause window, and on demand. A ping that cannot get through opens a `supabase`-labelled
+**Done, then fixed.** The first version pinged every three days on the theory that any request
+resets a 7-day timer. It does not: Supabase wants "a few user requests to the database each day"
+over the past week, and the project was warned on 2026-09-12 and paused on 2026-10-05 with every
+ping succeeding. `.github/workflows/keepalive.yml` now runs `keepalive.py` twice a day, three
+calls per run, and on demand. A ping that cannot get through opens a `supabase`-labelled
 issue rather than failing silently — a silent failure would mean the project pauses anyway and
 nobody notices until a sync fails on someone's phone. The issue closes itself when the ping
 succeeds again.
 
-The retries are the wake mechanism: a paused project takes about 30 seconds to come back and the
-waking request may itself time out. Four attempts, but never on a 4xx, which will not fix itself.
-`keepalive.test.py` covers all of that against a stubbed network, including the
-wakes-on-third-attempt case, and runs in CI.
+Retries cover transient failures only - four attempts, never on a 4xx. They do not wake a paused
+project; that takes a restore from the dashboard. `keepalive.test.py` covers all of that against a
+stubbed network, including the several-calls-per-run requirement, and runs in CI.
 
 Config comes from `supabase.py` rather than repository secrets, deviating from what this item
 originally said: both values are already public in the page, so secrets would have added setup
