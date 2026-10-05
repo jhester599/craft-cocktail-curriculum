@@ -31,7 +31,7 @@ are not built at all; everything else works exactly the same, offline included.
 | `check-videos.mjs` | Checks every video link on the built page against YouTube's oEmbed endpoint. Run monthly by CI; `npm run check:videos` to run it by hand. |
 | `smoke-test.mjs` | 196 checks against the built page in jsdom: tracking, migration, ownership, sync, profiles, chrome. |
 | `check-videos.test.mjs` | 14 checks on the link checker, against a mocked endpoint. |
-| `keepalive.test.py` | 12 checks on the keep-alive, against a stubbed network. |
+| `keepalive.test.py` | 15 checks on the keep-alive, against a stubbed network. |
 
 ## Build
 
@@ -74,7 +74,7 @@ Since the served file is the committed one, a push whose `docs/index.html` is ou
    covers the whole directory, so `start.html` and `synccheck.html` cannot drift either. Fix
    it by running `python3 build.py` and committing the result.
 4. `npm test` — the 196 jsdom checks plus 14 covering the link checker.
-5. `python3 keepalive.test.py` — 12 checks on the Supabase keep-alive, no network needed.
+5. `python3 keepalive.test.py` — 15 checks on the Supabase keep-alive, no network needed.
 
 The build is deterministic: same inputs, byte-identical output, no timestamps.
 
@@ -346,15 +346,19 @@ Note what it cannot show: a profile with no sync code never reaches the table at
 can use the site for a year and leave no trace, because their data lives in their browser and
 only sync sends it anywhere. It is "who set up sync and how active they are", not attendance.
 
-**Keeping it awake.** A free-tier project pauses after 7 days without database activity, and a
-paused project refuses syncs until it is restored. `.github/workflows/keepalive.yml` runs
-`keepalive.py` every three days to prevent that, and opens a `supabase`-labelled issue if the
-ping cannot get through — a silent failure would mean the project pauses anyway and nobody finds
-out until a sync fails on someone's phone.
+**Keeping it awake.** Supabase pauses a free-tier project that has not seen "sufficient user
+database activity over the past week" — per their docs, "typically a few user requests to the
+database each day" — and a paused project refuses syncs until it is restored from the dashboard.
+That is a volume, not a timer one request resets: pinging every three days was not enough, and
+the project was paused on 2026-10-05 with every ping succeeding.
+`.github/workflows/keepalive.yml` now runs `keepalive.py` twice a day, three calls per run, and
+opens a `supabase`-labelled issue if the ping cannot get through — a silent failure would mean
+the project pauses anyway and nobody finds out until a sync fails on someone's phone.
 
-The retry in that script is the mechanism, not politeness: a paused project takes about 30
-seconds to wake, and the request that wakes it may itself time out. It retries four times, but
-never retries a 4xx, which will not fix itself.
+Each call retries transient failures (timeouts, gateway errors) up to four times, but never a
+4xx, which will not fix itself. Retries do not wake a paused project; only a restore from the
+dashboard does. Supabase also emails a "going to be paused" warning first — if one arrives, the
+keep-alive is not doing enough.
 
 Config comes from `supabase.py`, not repository secrets. Both values are already public — they
 ship inside `docs/index.html`, which is exactly why `schema.sql` gives `anon` no table

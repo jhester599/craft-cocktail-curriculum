@@ -1,8 +1,11 @@
 name: keep supabase awake
 
-# A free-tier Supabase project pauses after 7 days without database activity,
-# and a paused project refuses the syncs this site depends on. Pinging every
-# three days keeps it awake with plenty of margin.
+# Supabase pauses a free-tier project that has not seen "sufficient user
+# database activity over the past week" - in their words, "typically a few user
+# requests to the database each day". It is a volume over the week, not a timer
+# that one request resets: this used to ping once every three days, and the
+# project was paused on 2026-10-05 with every ping succeeding. Twice a day, with
+# several calls per run (see keepalive.py), clears that comfortably.
 #
 # Note: GitHub disables scheduled workflows in repositories with no activity for
 # 60 days. If the repo goes quiet for that long, re-enable this from the Actions
@@ -10,8 +13,9 @@ name: keep supabase awake
 
 on:
   schedule:
-    # 09:00 UTC every third day. Longest gap is three days, well under seven.
-    - cron: "0 9 */3 * *"
+    # 03:17 and 15:17 UTC. Off the hour because GitHub delays or drops
+    # scheduled runs at :00 when its queue is busy.
+    - cron: "17 3,15 * * *"
   workflow_dispatch:
 
 permissions:
@@ -51,14 +55,15 @@ jobs:
           cat > body.md <<'EOF'
           The scheduled keep-alive could not reach the Supabase project.
 
-          If this is not fixed, the project will pause after 7 days without
-          database activity, and cross-device sync will fail until it is
-          restored from the Supabase dashboard.
+          If this is not fixed, the project will pause for lack of database
+          activity, and cross-device sync will fail until it is restored from
+          the Supabase dashboard.
 
           Worth checking, in order:
 
-          - Is the project still active in the Supabase dashboard? Restoring a
-            paused project takes about 30 seconds.
+          - Is the project paused? Restore it from the Supabase dashboard - a
+            paused free project does not come back on its own, however many
+            requests reach it.
           - Has the publishable key been rotated? It lives in `supabase.py`.
           - Does `docs/synccheck.html` on the live site still pass all five
             checks from a browser?
