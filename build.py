@@ -233,8 +233,19 @@ def brand_link(brand):
     return ('<a class="bottle" href="%s" target="_blank" rel="noopener">%s<span>%s</span></a>'
             % (img_url(brand), BOTTLE_ICON, brand))
 
+def build_html(ing, method, label=None):
+    """One recipe: optional label, ingredient list, method."""
+    head = '<p class="build">%s</p>' % label if label else ""
+    ings = "".join("<li>%s</li>" % link_ingredients(add_metric(i)) for i in ing)
+    return '%s<ul class="ings">%s</ul>\n      <p class="method">%s</p>' % (head, ings, add_metric(method))
+
 def cocktail_html(c):
-    ings = "".join("<li>%s</li>" % link_ingredients(add_metric(i)) for i in c["ing"])
+    # A drink can carry a second recipe ("alt") - the Cosmopolitan shows both its
+    # 1987 standard and the 1934 original. Only the main build feeds REQS.
+    recipe = build_html(c["ing"], c["method"], c.get("label"))
+    if c.get("alt"):
+        a = c["alt"]
+        recipe += "\n      " + build_html(a["ing"], a["method"], a["label"])
     if c["video"]:
         vid = ('<a class="video" href="%s" target="_blank" rel="noopener">%s'
                '<span>Watch &middot; %s</span></a>' % (c["video"], PLAY_ICON, c["channel"]))
@@ -247,11 +258,10 @@ def cocktail_html(c):
         <h3>%s</h3>
         <p class="tags"><span class="tag">%s</span><span class="tag alt">%s</span></p>
       </header>
-      <ul class="ings">%s</ul>
-      <p class="method">%s</p>
+      %s
       %s
       <p class="why">%s</p>%s
-    </article>""" % (c["slug"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], ings, add_metric(c["method"]), vid, c["note"], track_block(c["slug"]))
+    </article>""" % (c["slug"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], recipe, vid, c["note"], track_block(c["slug"]))
 
 def group_html(g):
     drinks = "".join(cocktail_html(c) for c in g["cocktails"])
@@ -338,7 +348,7 @@ assert not _stray, "ohlq.CATEGORIES keys match no appendix item: %s" % _stray
 _unknown = []
 for _g in GROUPS:
     for _c in _g["cocktails"]:
-        for _line in _c["ing"]:
+        for _line in _c["ing"] + (_c["alt"]["ing"] if _c.get("alt") else []):
             _spans, _rest = resolve_line(_line)
             if _rest:
                 _unknown.append("%s: %r (unmatched: %r)" % (_c["name"], _line, _rest))
@@ -428,6 +438,7 @@ h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weigh
 .ings li{padding:6px 0;border-bottom:1px dotted var(--line);font-size:16.5px}
 .ings li:last-child{border-bottom:none}
 .method{margin:0 0 16px;font-size:15.5px;color:var(--muted)}
+.build{margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .why{margin:16px 0 0;font-size:15.5px;padding-top:14px;border-top:1px dotted var(--line)}
 
 .video{display:inline-flex;align-items:center;gap:9px;text-decoration:none;
@@ -514,11 +525,9 @@ footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
 """ + TRACK_CSS
 
 NOTES = [
-    ("Every drink has a video.", "All 52 now link to a tutorial. The original 38 were checked against YouTube's oEmbed endpoint: every one resolves, sits on the channel claimed, and carries a title matching its drink. The remaining 14 were sourced by hand afterwards and have not been through that check. Links do rot over time; re-running the check periodically is on the backlog."),
-    ("Two links come with asterisks.", "The Fish House Punch link is a YouTube Short rather than a full tutorial. The Cosmopolitan link is confirmed to be the Educated Barfly's 1934 variation, not the modern Cecchini build in the spec above &mdash; treat it as background, not as instructions."),
+    ("Every drink has a video.", "Each card links to a tutorial, most of them from The Educated Barfly. Where a video's ratios differ from the card, the card is the spec this guide uses. The Fish House Punch link is a YouTube Short rather than a full walkthrough."),
     ("Specs legitimately vary.", "The Boulevardier, White Negroni, Vieux Carré, Division Bell, Mai Tai and Aviation all have competing accepted ratios. The versions here are cross-checked against Difford's, Punch, Imbibe, Death &amp; Co and Smuggler's Cove — treat them as starting points and adjust to your palate."),
-    ("Chartreuse is now down to two drinks.", "The Carthusian monks capped production in 2021 and moved to strict allocation in early 2023, and that policy has not shifted since — the shortage is a deliberate decision, not a supply-chain problem, and it hits the US far harder than Europe. Rather than build a year around a bottle you may never find, only the Last Word and the Naked &amp; Famous call for it, and both list a substitute in the build. Faccia Brutto Centerbe is the closest green stand-in; Strega covers the yellow."),
-    ("Classification involved judgement calls.", "The Black Manhattan is counted as amaro-forward because Averna fully replaces the vermouth, and the Aviation is tallied in the bitter column to keep the spirit spread even. Move them if you disagree — the drinks are unaffected."),
+    ("Chartreuse is down to two drinks.", "The monks who make it have rationed supply since 2023, and bottles are hard to find in the US. Only the Last Word and the Naked &amp; Famous call for it, and both list a substitute: Faccia Brutto Centerbe for green, Strega for yellow."),
     ("Metric figures are rounded to a 30 ml jigger.", "The convention most metric recipes use, so ¾ oz reads as 22.5 ml rather than the literal 22.2. Close enough that the balance holds; use one system throughout a given drink rather than mixing them."),
 ]
 notes_html = "".join("<li><b>%s</b> %s</li>" % (a, b) for a, b in NOTES)

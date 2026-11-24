@@ -416,10 +416,18 @@ GROUPS = [
             },
             {
                 "n": 50, "name": "Cosmopolitan", "family": "Modern classic", "spirit": "Vodka",
+                "label": "Standard build · 1987",
                 "ing": ["1½ oz citron vodka", "1 oz Cointreau", "½ oz fresh lime juice", "¼ oz cranberry juice"],
                 "method": "Shake; strain up; flamed orange twist.",
-                "video": "https://www.youtube.com/watch?v=8GuzqMeZUrM", "channel": "The Educated Barfly — 1934 variation, check before following",
-                "note": "Toby Cecchini, New York, 1980s. Made with fresh lime and restrained cranberry it is dry, sharp, and nothing like its reputation.",
+                # Shown as a second recipe on the card. The shelf check ("what can I
+                # make tonight?") still uses the standard build above.
+                "alt": {
+                    "label": "Original build · 1934",
+                    "ing": ["2 oz London dry gin", "½ oz Cointreau", "¾ oz fresh lemon juice", "¼ oz raspberry syrup"],
+                    "method": "Shake hard; strain up into a chilled coupe; lemon twist.",
+                },
+                "video": "https://www.youtube.com/watch?v=8GuzqMeZUrM", "channel": "The Educated Barfly — the 1934 build",
+                "note": "Two drinks share the name. The 1934 one comes from <em>Pioneers of Mixing at Elite Bars</em>: gin, Cointreau, lemon and raspberry syrup, which is really a fancy Gin Daisy. The book's own spec is a jigger of gin, two dashes of Cointreau, the juice of a whole lemon and a teaspoon of raspberry syrup, so the build here trims the lemon to balance it. The one everyone knows is Toby Cecchini's, at the Odeon in New York in 1987. Made with fresh lime and restrained cranberry it is dry, sharp, and nothing like its reputation. Make both side by side once: the family resemblance is plain.",
             },
         ],
     },
