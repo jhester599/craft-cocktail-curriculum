@@ -233,8 +233,19 @@ def brand_link(brand):
     return ('<a class="bottle" href="%s" target="_blank" rel="noopener">%s<span>%s</span></a>'
             % (img_url(brand), BOTTLE_ICON, brand))
 
+def build_html(ing, method, label=None):
+    """One recipe: optional label, ingredient list, method."""
+    head = '<p class="build">%s</p>' % label if label else ""
+    ings = "".join("<li>%s</li>" % link_ingredients(add_metric(i)) for i in ing)
+    return '%s<ul class="ings">%s</ul>\n      <p class="method">%s</p>' % (head, ings, add_metric(method))
+
 def cocktail_html(c):
-    ings = "".join("<li>%s</li>" % link_ingredients(add_metric(i)) for i in c["ing"])
+    # A drink can carry a second recipe ("alt") - the Cosmopolitan shows both its
+    # 1987 standard and the 1934 original. Only the main build feeds REQS.
+    recipe = build_html(c["ing"], c["method"], c.get("label"))
+    if c.get("alt"):
+        a = c["alt"]
+        recipe += "\n      " + build_html(a["ing"], a["method"], a["label"])
     if c["video"]:
         vid = ('<a class="video" href="%s" target="_blank" rel="noopener">%s'
                '<span>Watch &middot; %s</span></a>' % (c["video"], PLAY_ICON, c["channel"]))
@@ -247,11 +258,10 @@ def cocktail_html(c):
         <h3>%s</h3>
         <p class="tags"><span class="tag">%s</span><span class="tag alt">%s</span></p>
       </header>
-      <ul class="ings">%s</ul>
-      <p class="method">%s</p>
+      %s
       %s
       <p class="why">%s</p>%s
-    </article>""" % (c["slug"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], ings, add_metric(c["method"]), vid, c["note"], track_block(c["slug"]))
+    </article>""" % (c["slug"], c["slug"], c["n"], c["name"], c["family"], c["spirit"], recipe, vid, c["note"], track_block(c["slug"]))
 
 def group_html(g):
     drinks = "".join(cocktail_html(c) for c in g["cocktails"])
@@ -338,7 +348,7 @@ assert not _stray, "ohlq.CATEGORIES keys match no appendix item: %s" % _stray
 _unknown = []
 for _g in GROUPS:
     for _c in _g["cocktails"]:
-        for _line in _c["ing"]:
+        for _line in _c["ing"] + (_c["alt"]["ing"] if _c.get("alt") else []):
             _spans, _rest = resolve_line(_line)
             if _rest:
                 _unknown.append("%s: %r (unmatched: %r)" % (_c["name"], _line, _rest))
@@ -428,6 +438,7 @@ h1,h2,h3,h4{font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weigh
 .ings li{padding:6px 0;border-bottom:1px dotted var(--line);font-size:16.5px}
 .ings li:last-child{border-bottom:none}
 .method{margin:0 0 16px;font-size:15.5px;color:var(--muted)}
+.build{margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .why{margin:16px 0 0;font-size:15.5px;padding-top:14px;border-top:1px dotted var(--line)}
 
 .video{display:inline-flex;align-items:center;gap:9px;text-decoration:none;
